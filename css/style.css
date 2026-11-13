@@ -91,7 +91,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:inherit}
 
 /* ---------- 主区域 ---------- */
 .main{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;position:relative}
-.view{padding:2px 0 24px}
+.view{padding:2px 0 92px}
 
 /* ---------- 航道 ---------- */
 .river{display:flex;padding:8px 10px 8px 0;position:relative}
@@ -210,7 +210,11 @@ input,textarea,select{font-family:inherit;font-size:15px;color:inherit}
 }
 .now-label{display:none}
 
-.empty-hint{text-align:center;padding:52px 24px 24px;color:var(--muted)}
+.empty-hint{
+  position:fixed;left:0;right:0;top:42%;transform:translateY(-50%);
+  text-align:center;padding:0 24px;color:var(--muted);
+  pointer-events:none;z-index:1;
+}
 .eh-title{font-size:14px;margin:0;color:var(--ink-2)}
 .eh-sub{font-size:12.5px;margin:5px 0 0}
 

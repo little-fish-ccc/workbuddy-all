@@ -188,7 +188,22 @@ eq('1440 回写为 24:00', U.toHHMM(1440), '24:00');
 eq('跨天加 1 天', U.addDays('2026-12-31', 1), '2027-01-01');
 eq('跨月回退 1 天', U.addDays('2026-03-01', -1), '2026-02-28');
 
-console.log('\n\x1b[1m13. 版本号一致性\x1b[0m');
+console.log('\n\x1b[1m13. 附件清理与空状态\x1b[0m');
+DM.store.upsert({ id: 'att1', date: today, start: '19:00', duration: 30, title: '带图的任务', domain: 'misc', attachments: [], remind: { before: -1 } });
+const attK = await DM.store.addAttachment('att1', 'data:image/png;base64,' + 'B'.repeat(600));
+eq('附件已挂到任务上', DM.store.getTask('att1').attachments.length, 1);
+DM.store.remove('att1');
+await sleep(60);
+eq('删除任务时附件一并清掉', await DM.store.fileGet(attK), '');
+ok('任务确实没了', DM.store.getTask('att1') === null);
+
+DM.store.clearAll();
+DM.day.render();
+ok('清空后出现空航道提示', $('#emptyHint').hidden === false);
+eq('清空后任务数为 0', DM.store.all().tasks.length, 0);
+ok('空状态提示不占航道高度', !!$('#emptyHint'));
+
+console.log('\n\x1b[1m14. 版本号一致性\x1b[0m');
 const vers = new Set(Array.from(html.matchAll(/\?v=([a-z0-9]+)/g)).map(m => m[1]));
 eq('index.html 内版本号唯一', Array.from(vers), [VERSION]);
 const sw = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');

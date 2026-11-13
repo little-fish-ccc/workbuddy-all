@@ -4,7 +4,7 @@
   var DM = (window.DM = window.DM || {});
   var U = DM.util;
 
-  DM.state = { date: U.todayKey(), view: 'day', bannerClosed: false };
+  DM.state = { date: U.todayKey(), view: 'day', bannerClosed: false, followToday: true };
 
   var el = {};
   function $(id) { return document.getElementById(id); }
@@ -82,12 +82,22 @@
 
   function openDate(key) {
     DM.state.date = key;
+    DM.state.followToday = key === U.todayKey();
     DM.state.scrolledOnce = false;
     DM.day.setDate(key);
     setView('day');
   }
 
-  DM.app = { setView: setView, openDate: openDate, banner: banner };
+  function openTask(id) {
+    var t = DM.store.getTask(id);
+    if (!t) return;
+    DM.state.date = t.date;
+    DM.day.setDate(t.date);
+    setView('day');
+    setTimeout(function () { DM.editor.open(id); }, 60);
+  }
+
+  DM.app = { setView: setView, openDate: openDate, openTask: openTask, banner: banner };
 
   /* ---------------- 设置面板 ---------------- */
   function buildSettings() {
@@ -201,6 +211,7 @@
     $('tabMonth').addEventListener('click', function () { setView('month'); });
     $('tabToday').addEventListener('click', function () {
       DM.state.date = U.todayKey();
+      DM.state.followToday = true;
       DM.day.setDate(U.todayKey());
       setView('day');
     });
@@ -231,6 +242,7 @@
   function step(n) {
     var d = U.addDays(DM.state.date, n);
     DM.state.date = d;
+    DM.state.followToday = d === U.todayKey();
     DM.day.setDate(d);
     if (DM.state.view === 'month') DM.month.render();
   }
@@ -276,8 +288,15 @@
 
     document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'visible') {
+        var t = U.todayKey();
+        if (DM.state.followToday && DM.state.date !== t) {
+          DM.state.date = t;
+          DM.day.setDate(t);
+          if (DM.state.view === 'month') DM.month.render();
+        } else {
+          DM.day.render();
+        }
         DM.remind.scan(false);
-        DM.day.render();
         banner.refresh();
       } else {
         DM.store.save();

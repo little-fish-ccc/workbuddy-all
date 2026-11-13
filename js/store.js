@@ -166,7 +166,11 @@
     return found;
   }
   function remove(id) {
-    db.tasks = db.tasks.filter(function (t) { return t.id !== id; });
+    var t = getTask(id);
+    if (t && t.attachments && t.attachments.length) {
+      t.attachments.forEach(function (k) { fileDelete(k); });   // 顺手收拾掉图，别在 IDB 里留垃圾
+    }
+    db.tasks = db.tasks.filter(function (x) { return x.id !== id; });
     saveSoon();
   }
   function toggle(id) {
@@ -179,6 +183,9 @@
     return t;
   }
   function clearAll() {
+    db.tasks.forEach(function (t) {
+      (t.attachments || []).forEach(function (k) { fileDelete(k); });
+    });
     db = freshDB();
     db.settings.firstRun = false;
     save();

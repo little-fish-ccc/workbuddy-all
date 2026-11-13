@@ -64,7 +64,11 @@
         badge: './icons/icon-192.png',
         silent: true
       });
-      n.onclick = function () { try { window.focus(); } catch (e) { } n.close(); };
+      n.onclick = function () {
+        try { window.focus(); } catch (e) { }
+        if (DM.app && DM.app.openTask) DM.app.openTask(task.id);
+        n.close();
+      };
       setTimeout(function () { try { n.close(); } catch (e) { } }, 12000);
     } catch (e) { /* 某些环境不支持构造 */ }
   }
@@ -81,7 +85,7 @@
     var line = mins > 0 ? '还有 ' + U.humanDur(mins) : (mins === 0 ? '就是现在' : '已到点');
     if (DM.toast) {
       DM.toast(task.title, line + ' · ' + task.start, function () {
-        if (DM.editor) DM.editor.open(task.id);
+        if (DM.editor && !DM.editor.isOpen()) DM.editor.open(task.id);
       });
     }
     beep();
