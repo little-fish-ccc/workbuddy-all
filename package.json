@@ -1,0 +1,12 @@
+{
+  "name": "dianmao",
+  "version": "1.0.0",
+  "private": true,
+  "description": "点卯 · 一日航道（纯前端 PWA）",
+  "scripts": {
+    "test": "node tests/smoke.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.1"
+  }
+}

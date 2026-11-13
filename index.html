@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+<title>点卯 · 一日航道</title>
+<meta name="description" content="点卯：按时刻安排一天的航道图，打勾即完成。">
+<meta name="theme-color" content="#F5F1E7">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="点卯">
+<link rel="manifest" href="./manifest.json?v=20261113a">
+<link rel="icon" href="./icons/icon-192.png?v=20261113a">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=20261113a">
+<link rel="stylesheet" href="./css/style.css?v=20261113a">
+</head>
+<body>
+<div class="app" id="app">
+
+  <header class="topbar" id="topbar">
+    <button class="icon-btn" id="btnPrev" aria-label="前一天">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <div class="topbar-mid">
+      <div class="day-title" id="dayTitle">11月13日</div>
+      <div class="day-sub" id="daySub">周四 · 今天</div>
+    </div>
+    <button class="icon-btn" id="btnNext" aria-label="后一天">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+    </button>
+    <button class="icon-btn" id="btnSettings" aria-label="设置">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.1-1.55 1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.55-1.1 1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"/></svg>
+    </button>
+  </header>
+
+  <div class="banner" id="banner" hidden>
+    <div class="banner-main">
+      <span class="banner-kick" id="bannerKick"></span>
+      <span class="banner-text" id="bannerText"></span>
+    </div>
+    <button class="banner-btn" id="bannerAction" hidden>开启</button>
+    <button class="banner-x" id="bannerClose" aria-label="关闭">✕</button>
+  </div>
+
+  <main class="main" id="main">
+
+    <section class="view" id="viewDay">
+      <div class="river" id="river">
+        <div class="axis" id="axis"></div>
+        <div class="track" id="track">
+          <div class="grid" id="grid"></div>
+          <div class="blocks" id="blocks"></div>
+          <div class="nowline" id="nowline" hidden><span class="now-dot"></span><span class="now-label" id="nowLabel"></span></div>
+        </div>
+      </div>
+      <div class="empty-hint" id="emptyHint" hidden>
+        <p class="eh-title">这条航道还空着</p>
+        <p class="eh-sub">点右下角的 + 放下第一件事</p>
+      </div>
+    </section>
+
+    <section class="view view-month" id="viewMonth" hidden>
+      <div class="month-head">
+        <button class="icon-btn" id="mPrev" aria-label="上个月">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+        </button>
+        <div class="month-title" id="monthTitle">2026年11月</div>
+        <button class="icon-btn" id="mNext" aria-label="下个月">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+      <div class="weekbar">
+        <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+      </div>
+      <div class="month-grid" id="monthGrid"></div>
+      <div class="month-legend">
+        <span>少</span><i class="d1"></i><i class="d2"></i><i class="d3"></i><i class="d4"></i><span>多</span>
+        <span class="legend-gap">· 小圆点＝有未完成</span>
+      </div>
+    </section>
+
+  </main>
+
+  <nav class="tabbar">
+    <button class="tab active" id="tabDay">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 7h16M4 12h10M4 17h13"/></svg>
+      <span>航道</span>
+    </button>
+    <button class="tab" id="tabMonth">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3.5v3M16 3.5v3"/></svg>
+      <span>月历</span>
+    </button>
+    <button class="tab tab-today" id="tabToday">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.2"/><path d="M12 7.5V12l3 2"/></svg>
+      <span>今天</span>
+    </button>
+  </nav>
+
+  <button class="fab" id="fab" aria-label="新建">
+    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+
+</div>
+
+<!-- 任务编辑抽屉 -->
+<div class="mask" id="mask" hidden></div>
+<section class="drawer" id="drawer" aria-hidden="true" role="dialog" aria-modal="true" aria-label="编辑事项">
+  <div class="drawer-grab"></div>
+  <div class="drawer-head">
+    <span class="drawer-title" id="drTitle">新建事项</span>
+    <button class="icon-btn sm" id="drClose" aria-label="关闭">✕</button>
+  </div>
+  <div class="drawer-body">
+    <label class="field">
+      <input class="input-title" id="fTitle" type="text" placeholder="要做什么？" maxlength="60" autocomplete="off">
+    </label>
+
+    <div class="row2">
+      <label class="field">
+        <span class="lbl">日期</span>
+        <input class="input" id="fDate" type="date">
+      </label>
+      <label class="field">
+        <span class="lbl">开始</span>
+        <input class="input" id="fStart" type="time" step="900">
+      </label>
+    </div>
+
+    <div class="field">
+      <span class="lbl">持续多久</span>
+      <div class="chips" id="fDur"></div>
+      <div class="custom-dur" id="customDur" hidden>
+        <input class="input" id="fDurNum" type="number" min="5" max="720" step="5" inputmode="numeric">
+        <span class="unit">分钟</span>
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="lbl">归属</span>
+      <div class="chips chips-domain" id="fDomain"></div>
+    </div>
+
+    <label class="field">
+      <span class="lbl">备注</span>
+      <textarea class="input" id="fNote" rows="2" placeholder="可选，随手记一句" maxlength="500"></textarea>
+    </label>
+
+    <div class="field">
+      <span class="lbl">图片</span>
+      <div class="atts" id="fAtts"></div>
+      <input type="file" id="fFile" accept="image/*" hidden>
+    </div>
+
+    <label class="field row-between">
+      <span class="lbl">提前提醒</span>
+      <select class="input select" id="fRemind">
+        <option value="0">准时</option>
+        <option value="5">5 分钟前</option>
+        <option value="10">10 分钟前</option>
+        <option value="15">15 分钟前</option>
+        <option value="30">30 分钟前</option>
+        <option value="60">1 小时前</option>
+        <option value="-1">不提醒</option>
+      </select>
+    </label>
+  </div>
+  <div class="drawer-foot">
+    <button class="btn danger" id="drDelete" hidden>删除</button>
+    <button class="btn primary" id="drSave">保存</button>
+  </div>
+</section>
+
+<!-- 设置抽屉 -->
+<section class="drawer" id="settings" aria-hidden="true" role="dialog" aria-modal="true" aria-label="设置">
+  <div class="drawer-grab"></div>
+  <div class="drawer-head">
+    <span class="drawer-title">设置</span>
+    <button class="icon-btn sm" id="stClose" aria-label="关闭">✕</button>
+  </div>
+  <div class="drawer-body">
+    <div class="field row-between">
+      <span class="lbl">提醒</span>
+      <label class="switch"><input type="checkbox" id="sNotify"><i></i></label>
+    </div>
+    <div class="field row-between">
+      <span class="lbl">提示音</span>
+      <label class="switch"><input type="checkbox" id="sSound"><i></i></label>
+    </div>
+    <div class="field row-between">
+      <span class="lbl">显示已完成</span>
+      <label class="switch"><input type="checkbox" id="sShowDone"><i></i></label>
+    </div>
+    <div class="row2">
+      <label class="field">
+        <span class="lbl">航道起点</span>
+        <select class="input select" id="sDayStart"></select>
+      </label>
+      <label class="field">
+        <span class="lbl">航道终点</span>
+        <select class="input select" id="sDayEnd"></select>
+      </label>
+    </div>
+    <p class="note-line">提醒只在页面打开时生效。添加到主屏幕后，图标角标会显示未完成数量。</p>
+    <div class="field">
+      <span class="lbl">数据</span>
+      <div class="btn-row">
+        <button class="btn ghost" id="btnExport">导出备份</button>
+        <button class="btn ghost" id="btnClear">清空全部</button>
+      </div>
+    </div>
+    <p class="note-line" id="stVersion">点卯 v1 · 20261113a</p>
+  </div>
+  <div class="drawer-foot">
+    <button class="btn primary" id="stDone">完成</button>
+  </div>
+</section>
+
+<div class="lightbox" id="lightbox" hidden><img id="lightboxImg" alt=""></div>
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script src="./js/store.js?v=20261113a"></script>
+<script src="./js/lane.js?v=20261113a"></script>
+<script src="./js/remind.js?v=20261113a"></script>
+<script src="./js/view-editor.js?v=20261113a"></script>
+<script src="./js/view-day.js?v=20261113a"></script>
+<script src="./js/view-month.js?v=20261113a"></script>
+<script src="./js/app.js?v=20261113a"></script>
+</body>
+</html>
