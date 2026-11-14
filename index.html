@@ -10,10 +10,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="点卯">
-<link rel="manifest" href="./manifest.json?v=20261114c">
-<link rel="icon" href="./icons/icon-192.png?v=20261114c">
-<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=20261114c">
-<link rel="stylesheet" href="./css/style.css?v=20261114c">
+<link rel="manifest" href="./manifest.json?v=20261115a">
+<link rel="icon" href="./icons/icon-192.png?v=20261115a">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=20261115a">
+<link rel="stylesheet" href="./css/style.css?v=20261115a">
 </head>
 <body>
 <div class="app" id="app">
@@ -113,8 +113,17 @@
   </div>
   <div class="drawer-body">
     <label class="field">
-      <input class="input-title" id="fTitle" type="text" placeholder="要做什么？" maxlength="60" autocomplete="off">
+      <textarea class="input-title" id="fTitle" rows="1" placeholder="要做什么？多件事用逗号隔开" maxlength="300" autocomplete="off"></textarea>
     </label>
+
+    <div class="subpanel" id="subPanel" hidden>
+      <div class="sub-head">
+        <span class="sub-hint" id="subHint"></span>
+        <button type="button" class="sub-merge" id="subMerge">合并成一条</button>
+      </div>
+      <div class="sub-list" id="subList"></div>
+      <button type="button" class="sub-add" id="subAdd">＋ 加一条</button>
+    </div>
 
     <div class="row2">
       <label class="field">
@@ -209,7 +218,7 @@
         <button class="btn ghost" id="btnClear">清空全部</button>
       </div>
     </div>
-    <p class="note-line" id="stVersion">点卯 v1 · 20261114c</p>
+    <p class="note-line" id="stVersion">点卯 v1 · 20261115a</p>
   </div>
   <div class="drawer-foot">
     <button class="btn primary" id="stDone">完成</button>
@@ -219,12 +228,12 @@
 <div class="lightbox" id="lightbox" hidden><img id="lightboxImg" alt=""></div>
 <div class="toast-wrap" id="toastWrap"></div>
 
-<script src="./js/store.js?v=20261114c"></script>
-<script src="./js/lane.js?v=20261114c"></script>
-<script src="./js/remind.js?v=20261114c"></script>
-<script src="./js/view-editor.js?v=20261114c"></script>
-<script src="./js/view-day.js?v=20261114c"></script>
-<script src="./js/view-month.js?v=20261114c"></script>
-<script src="./js/app.js?v=20261114c"></script>
+<script src="./js/store.js?v=20261115a"></script>
+<script src="./js/lane.js?v=20261115a"></script>
+<script src="./js/remind.js?v=20261115a"></script>
+<script src="./js/view-editor.js?v=20261115a"></script>
+<script src="./js/view-day.js?v=20261115a"></script>
+<script src="./js/view-month.js?v=20261115a"></script>
+<script src="./js/app.js?v=20261115a"></script>
 </body>
 </html>

@@ -10,17 +10,24 @@
   var el = {};
   var cur = {
     id: null, atts: [], pending: [], duration: 0, domain: 'work',
-    custom: false, prevStart: '', prevDate: '', prevRemind: 10, dirty: false
+    custom: false, prevStart: '', prevDate: '', prevRemind: 10, dirty: false,
+    subs: []
   };
   var seq = 0;
 
   function $(id) { return document.getElementById(id); }
+  function rid() { return 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
   function init() {
     el.drawer = $('drawer');
     el.mask = $('mask');
     el.title = $('drTitle');
     el.fTitle = $('fTitle');
+    el.subPanel = $('subPanel');
+    el.subHint = $('subHint');
+    el.subList = $('subList');
+    el.subMerge = $('subMerge');
+    el.subAdd = $('subAdd');
     el.fDate = $('fDate');
     el.fStart = $('fStart');
     el.fDur = $('fDur');
@@ -131,6 +138,150 @@
     el.fDate.addEventListener('change', function () {
       el.title.textContent = (cur.id ? '编辑事项' : '新建事项') + ' · ' + U.fmtDayTitle(el.fDate.value || U.todayKey());
     });
+
+    /* ---- 标题 → 自动拆条 ---- */
+    el.fTitle.addEventListener('input', function () {
+      autoGrow();
+      var parts = DM.store.splitTitle(el.fTitle.value);
+      if (parts.length < 2) { cur.subs = []; paintSubs(); return; }
+      rebuildSubs(parts);
+    });
+    el.fTitle.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); el.fStart && el.fStart.focus(); }
+    });
+
+    /* ---- 子任务面板 ---- */
+    el.subList.addEventListener('click', function (e) {
+      var ck = e.target.closest('.s-check');
+      if (ck) {
+        var i = +ck.dataset.i;
+        if (cur.subs[i]) { cur.subs[i].done = !cur.subs[i].done; paintSubs(); }
+        return;
+      }
+      var del = e.target.closest('.s-del');
+      if (del) { dropSub(+del.dataset.i); }
+    });
+    el.subList.addEventListener('keydown', function (e) {
+      var inp = e.target.closest('.s-input');
+      if (!inp || e.key !== 'Enter' || e.isComposing) return;
+      e.preventDefault();
+      var i = +inp.dataset.i;
+      cur.subs.splice(i + 1, 0, { id: rid(), text: '', done: false });
+      paintSubs();
+      var ins = el.subList.querySelectorAll('.s-input');
+      if (ins[i + 1]) ins[i + 1].focus();
+    });
+    el.subList.addEventListener('input', function (e) {
+      var inp = e.target.closest('.s-input');
+      if (!inp) return;
+      var i = +inp.dataset.i;
+      if (!cur.subs[i]) return;
+      cur.subs[i].text = inp.value;
+      syncTitleFromSubs();
+    });
+    el.subAdd.addEventListener('click', function () {
+      cur.subs.push({ id: rid(), text: '', done: false });
+      paintSubs();
+      syncTitleFromSubs();
+      var ins = el.subList.querySelectorAll('.s-input');
+      if (ins.length) ins[ins.length - 1].focus();
+    });
+    el.subMerge.addEventListener('click', mergeBack);
+  }
+
+  function autoGrow() {
+    var t = el.fTitle;
+    t.style.height = 'auto';
+    var h = t.scrollHeight;
+    if (h) t.style.height = Math.min(h, 4 * 26) + 'px';
+  }
+
+  /* 标题里识别出的条目 → 子任务行（同文本的保留原完成态） */
+  function rebuildSubs(parts) {
+    var old = cur.subs.slice();
+    var used = {};
+    cur.subs = parts.map(function (text) {
+      var hit = -1;
+      old.forEach(function (o, i) {
+        if (hit < 0 && !used[i] && o.text.trim() === text) { hit = i; }
+      });
+      if (hit >= 0) { used[hit] = 1; return { id: old[hit].id, text: text, done: !!old[hit].done }; }
+      return { id: rid(), text: text, done: false };
+    });
+    paintSubs();
+  }
+
+  function syncTitleFromSubs() {
+    var t = cur.subs.map(function (s) { return String(s.text).trim(); })
+      .filter(function (x) { return x; }).join('，');
+    el.fTitle.value = t;          // 赋值不触发 input，不会二次拆分
+    autoGrow();
+  }
+
+  function dropSub(i) {
+    if (!(i >= 0 && i < cur.subs.length)) return;
+    cur.subs.splice(i, 1);
+    if (cur.subs.length < 2) {
+      // 只剩一条：回到普通单条任务
+      var one = cur.subs[0];
+      el.fTitle.value = one ? one.text : '';
+      cur.subs = [];
+      paintSubs();
+      autoGrow();
+      return;
+    }
+    syncTitleFromSubs();
+    paintSubs();
+  }
+
+  function mergeBack() {
+    var t = cur.subs.map(function (s) { return String(s.text).trim(); })
+      .filter(function (x) { return x; }).join('，');
+    cur.subs = [];
+    el.fTitle.value = t;
+    paintSubs();
+    autoGrow();
+    try { el.fTitle.focus(); } catch (e) { }
+  }
+
+  function paintSubs() {
+    var n = cur.subs.length;
+    el.subList.innerHTML = '';
+    if (n >= 2) {
+      cur.subs.forEach(function (s, i) {
+        var row = document.createElement('div');
+        row.className = 'subitem' + (s.done ? ' on' : '');
+
+        var ck = document.createElement('button');
+        ck.type = 'button';
+        ck.className = 's-check';
+        ck.dataset.i = i;
+        ck.setAttribute('aria-label', s.done ? '取消完成' : '完成');
+        ck.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5.2 5L20 6.5"/></svg>';
+
+        var inp = document.createElement('input');
+        inp.className = 's-input';
+        inp.type = 'text';
+        inp.dataset.i = i;
+        inp.value = s.text;
+        inp.maxLength = 100;
+        inp.autocomplete = 'off';
+
+        var del = document.createElement('button');
+        del.type = 'button';
+        del.className = 's-del';
+        del.dataset.i = i;
+        del.setAttribute('aria-label', '删掉这条');
+        del.textContent = '✕';
+
+        row.appendChild(ck);
+        row.appendChild(inp);
+        row.appendChild(del);
+        el.subList.appendChild(row);
+      });
+      el.subHint.textContent = n + ' 条子任务 · 可分别勾';
+    }
+    el.subPanel.hidden = n < 2;
   }
 
   function paintDur() {
@@ -162,6 +313,9 @@
     if (task) {
       el.title.textContent = '编辑事项 · ' + U.fmtDayTitle(task.date);
       el.fTitle.value = task.title;
+      cur.subs = (task.subs || []).map(function (s) {
+        return { id: s.id, text: s.text, done: !!s.done, doneAt: s.doneAt };
+      });
       el.fDate.value = task.date;
       el.fStart.value = task.start;
       cur.duration = task.duration > 0 ? +task.duration : 0;
@@ -179,6 +333,7 @@
       var start = defaults.start || defaultStart();
       el.title.textContent = '新建事项 · ' + U.fmtDayTitle(date);
       el.fTitle.value = '';
+      cur.subs = [];
       el.fDate.value = date;
       el.fStart.value = start;
       cur.duration = defaults.duration != null ? defaults.duration : 0;
@@ -194,6 +349,8 @@
     paintDur();
     paintDomain();
     paintAtts();
+    paintSubs();
+    autoGrow();
     el.drawer.classList.add('open');
     el.drawer.setAttribute('aria-hidden', 'false');
     el.mask.hidden = false;
@@ -330,7 +487,23 @@
 
   /* ---------- 保存 / 删除 ---------- */
   function save() {
-    var title = el.fTitle.value.trim();
+    var parts = cur.subs
+      .map(function (s) { return String(s.text == null ? '' : s.text).trim(); })
+      .filter(function (s) { return s; });
+
+    var title, subs = null;
+    if (parts.length >= 2) {
+      title = parts.join('，');
+      subs = [];
+      cur.subs.forEach(function (s) {
+        var txt = String(s.text == null ? '' : s.text).trim();
+        if (!txt) return;
+        subs.push({ id: s.id, text: txt, done: !!s.done, doneAt: s.done ? (s.doneAt || Date.now()) : null });
+      });
+    } else {
+      title = (parts.length === 1 ? parts[0] : el.fTitle.value).trim();
+    }
+
     if (!title) {
       el.fTitle.focus();
       el.fTitle.style.borderBottomColor = '#C0392B';
@@ -353,6 +526,7 @@
       start: start,
       duration: duration,
       title: title,
+      subs: subs,
       domain: cur.domain,
       note: el.fNote.value.trim(),
       attachments: cur.atts.slice(),
@@ -374,7 +548,10 @@
       if (DM.month) DM.month.render();
       if (DM.remind) { DM.remind.scan(true); DM.remind.updateBadge(); }
       if (DM.banner) DM.banner.refresh();
-      if (DM.toast) DM.toast(old ? '已更新' : '已放下', title + ' · ' + start);
+      if (DM.toast) {
+        var brief = title.length > 16 ? title.slice(0, 16) + '…' : title;
+        DM.toast(old ? '已更新' : '已放下', brief + ' · ' + start + (subs ? ' · ' + subs.length + ' 条' : ''));
+      }
     });
   }
 

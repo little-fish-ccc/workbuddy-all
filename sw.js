@@ -1,7 +1,7 @@
 /* 点卯 · Service Worker
  * 版本号与 index.html 的 ?v= 同步递增：改完代码改这里的一行即可
  */
-var VERSION = '20261114c';
+var VERSION = '20261115a';
 var CACHE = 'dianmao-' + VERSION;
 var V = '?v=' + VERSION;
 

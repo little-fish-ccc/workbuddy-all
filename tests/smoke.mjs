@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { JSDOM, ResourceLoader, VirtualConsole } from 'jsdom';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const VERSION = '20261114c';
+const VERSION = '20261115a';
 
 let pass = 0, fail = 0;
 const failures = [];
@@ -203,7 +203,107 @@ ok('清空后出现空航道提示', $('#emptyHint').hidden === false);
 eq('清空后任务数为 0', DM.store.all().tasks.length, 0);
 ok('空状态提示不占航道高度', !!$('#emptyHint'));
 
-console.log('\n\x1b[1m14. 版本号一致性\x1b[0m');
+console.log('\n\x1b[1m14. 一句话拆多条 · 子任务\x1b[0m');
+eq('逗号拆成 4 条', DM.store.splitTitle('起床，先喂猫，刷牙，洗脸'), ['起床', '先喂猫', '刷牙', '洗脸']);
+eq('顿号分号竖线都拆', DM.store.splitTitle('买菜、做饭；洗碗|拖地'), ['买菜', '做饭', '洗碗', '拖地']);
+eq('换行拆', DM.store.splitTitle('写周报\n回邮件'), ['写周报', '回邮件']);
+eq('没有分隔符就不拆', DM.store.splitTitle('写周报'), ['写周报']);
+eq('空段被丢掉', DM.store.splitTitle('，洗澡，，刷牙，'), ['洗澡', '刷牙']);
+
+const T = U.todayKey();
+DM.day.setDate(T);
+DM.store.upsert({
+  id: 'sub1', date: T, start: '12:00', duration: 90, title: '起床，先喂猫，刷牙', domain: 'life',
+  subs: DM.store.splitTitle('起床，先喂猫，刷牙').map(x => ({ text: x, done: false })),
+  remind: { before: -1 }
+});
+const p1 = DM.store.getTask('sub1');
+eq('子任务落库 3 条', p1.subs.length, 3);
+ok('每条都补了 id', p1.subs.every(s => !!s.id));
+ok('父任务初始未完成', p1.done === false);
+
+DM.day.render();
+const blk1 = Array.from($$('#blocks .blk')).find(b => b.dataset.id === 'sub1');
+ok('块内渲染出子任务行', !!blk1 && blk1.querySelectorAll('.sub-row').length === 3,
+  'rows=' + (blk1 ? blk1.querySelectorAll('.sub-row').length : 'none'));
+ok('meta 显示 0/3 进度', /0\/3/.test(blk1.querySelector('.b-meta').textContent));
+
+blk1.querySelector('.s-box').click();
+const after1 = DM.store.getTask('sub1');
+ok('点单条只勾那一条', after1.subs[0].done && !after1.subs[1].done);
+ok('父任务仍未完成', after1.done === false);
+ok('块显示半勾态 part', Array.from($$('#blocks .blk')).find(b => b.dataset.id === 'sub1').classList.contains('part'));
+
+DM.store.toggleSub('sub1', after1.subs[1].id);
+DM.store.toggleSub('sub1', after1.subs[2].id);
+ok('全部勾完 → 父任务自动完成', DM.store.getTask('sub1').done === true);
+
+DM.store.toggle('sub1');
+ok('点父勾 → 一键全取消', DM.store.getTask('sub1').subs.every(s => !s.done) && DM.store.getTask('sub1').done === false);
+DM.store.toggle('sub1');
+ok('再点父勾 → 一键全勾', DM.store.getTask('sub1').subs.every(s => s.done) && DM.store.getTask('sub1').done === true);
+
+console.log('\n\x1b[1m15. 空间够就折行显示\x1b[0m');
+const LONG = '把上周积压的会议纪要全部整理归档，再给相关同事回一封说明邮件';
+DM.store.upsert({ id: 'long1', date: T, start: '15:30', duration: 90, title: LONG, domain: 'work', remind: { before: -1 } });
+DM.store.upsert({ id: 'mid1', date: T, start: '17:30', duration: 45, title: LONG, domain: 'work', remind: { before: -1 } });
+DM.store.upsert({ id: 'tiny1', date: T, start: '19:00', duration: 15, title: LONG, domain: 'work', remind: { before: -1 } });
+DM.day.render();
+const pick = id => Array.from($$('#blocks .blk')).find(b => b.dataset.id === id);
+const ln = id => {
+  const b = pick(id); if (!b) return 0;
+  const e = b.querySelector('.b-title'); if (!e) return 0;
+  return +(e.dataset.lines || 0);
+};
+ok('90 分钟块标题折成多行', ln('long1') >= 3, 'lines=' + ln('long1'));
+ok('45 分钟块只留 1 行', ln('mid1') === 1, 'lines=' + ln('mid1'));
+ok('15 分钟块走 tiny（单行不折）', pick('tiny1').classList.contains('tiny'));
+ok('标题带了行数上限', !!pick('long1').querySelector('.b-title').style.maxHeight);
+
+console.log('\n\x1b[1m16. 编辑器：识别 / 合并 / 删除\x1b[0m');
+DM.store.clearAll();
+DM.day.setDate(T);
+DM.editor.open(null, { date: T, start: '12:00', duration: 90 });
+$('#fTitle').value = '起床，先喂猫，刷牙';
+$('#fTitle').dispatchEvent(new window.Event('input', { bubbles: true }));
+eq('输入后立刻识别出 3 条', $$('#subList .subitem').length, 3);
+ok('子任务面板展开', $('#subPanel').hidden === false);
+ok('提示写明条数', /3\s*条/.test($('#subHint').textContent));
+
+$('#drSave').click();
+await sleep(80);
+const savedSub = DM.store.tasksOn(T)[0];
+eq('保存后子任务 3 条', savedSub.subs.length, 3);
+eq('标题由子任务拼回', savedSub.title, '起床，先喂猫，刷牙');
+eq('编辑器已关闭', $('#drawer').classList.contains('open'), false);
+
+DM.editor.open(savedSub.id);
+await sleep(20);
+eq('再次打开能还原清单', $$('#subList .subitem').length, 3);
+$('#subMerge').click();
+eq('合并后清单清空', $$('#subList .subitem').length, 0);
+ok('合并后面板收起', $('#subPanel').hidden === true);
+$('#drSave').click();
+await sleep(80);
+ok('合并后存成单条任务', DM.store.getTask(savedSub.id).subs === null);
+eq('合并后标题仍是完整句子', DM.store.getTask(savedSub.id).title, '起床，先喂猫，刷牙');
+
+DM.editor.open(savedSub.id);
+$('#fTitle').value = 'A，B，C';
+$('#fTitle').dispatchEvent(new window.Event('input', { bubbles: true }));
+eq('三条再次识别', $$('#subList .subitem').length, 3);
+$('#subList .subitem:nth-child(1) .s-del').click();
+eq('删一条剩两条', $$('#subList .subitem').length, 2);
+eq('标题跟着改', $('#fTitle').value, 'B，C');
+$('#subList .subitem:nth-child(1) .s-del').click();
+ok('删到一条自动回到单条', $('#subPanel').hidden === true && $$('#subList .subitem').length === 0);
+eq('单条时标题留下那一条', $('#fTitle').value, 'C');
+
+DM.editor.close();
+DM.store.clearAll();
+DM.day.render();
+
+console.log('\n\x1b[1m17. 版本号一致性\x1b[0m');
 const vers = new Set(Array.from(html.matchAll(/\?v=([a-z0-9]+)/g)).map(m => m[1]));
 eq('index.html 内版本号唯一', Array.from(vers), [VERSION]);
 const sw = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');

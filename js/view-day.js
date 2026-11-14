@@ -31,6 +31,14 @@
 
   function bind() {
     el.track.addEventListener('click', function (e) {
+      var sb = e.target.closest('.s-box');
+      if (sb) {
+        e.stopPropagation();
+        var blk = sb.closest('.blk');
+        var tk = blk ? DM.store.toggleSub(blk.dataset.id, sb.dataset.sub) : null;
+        if (tk) afterChange(tk);
+        return;
+      }
       var chk = e.target.closest('.b-check');
       if (chk) {
         e.stopPropagation();
@@ -150,32 +158,104 @@
     });
   }
 
+  /* ---- 块内高度预算：先保证放得下的行数，再决定标题折几行 ---- */
+  var PAD = 13;          // 上下 padding + 边框
+  var META_H = 15;       // 时间行
+  var TITLE_LH = 17;     // 标题行高
+  var SUB_LH = 19;       // 子任务行高
+
+  function layoutOf(height, subs) {
+    var contentH = Math.max(0, height - PAD);
+    if (contentH < 34) return { tiny: true, lines: 1, rows: 0 };
+    if (subs && subs.length) {
+      var room = contentH - META_H;
+      var rows = Math.min(subs.length, Math.max(1, Math.floor(room / SUB_LH)));
+      return { tiny: false, lines: 0, rows: rows };
+    }
+    var lines = Math.max(1, Math.min(6, Math.floor((contentH - META_H) / TITLE_LH)));
+    return { tiny: false, lines: lines, rows: 0 };
+  }
+
+  function checkSvg() {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5.2 5L20 6.5"/></svg>';
+  }
+
   function blockEl(b) {
     var t = b.task;
     var d = DM.store.domain(t.domain);
+    var subs = t.subs || [];
+    var st = DM.store.subStats(t);
+    var lay = layoutOf(b.height, subs);
+    var partial = st.total > 0 && st.done > 0 && st.done < st.total;
+
     var div = document.createElement('div');
-    div.className = 'blk' + (b.height < 34 ? ' tiny' : '') + (t.done ? ' done' : '') + (b.off ? ' off' : '');
+    div.className = 'blk' + (lay.tiny ? ' tiny' : '') + (t.done ? ' done' : '') +
+      (b.off ? ' off' : '') + (partial ? ' part' : '');
     div.dataset.id = t.id;
     div.style.cssText = 'top:' + b.top + 'px;height:' + b.height + 'px;left:' +
       b.left + '%;width:calc(' + b.width + '% - ' + (b.lanes > 1 ? 3 : 0) + 'px);--c:' + d.color;
     if (t.attachments && t.attachments.length) div.classList.add('has-att');
 
-    var ti = document.createElement('div');
-    ti.className = 'b-title';
-    ti.textContent = t.title;
-    div.appendChild(ti);
+    var body = document.createElement('div');
+    body.className = 'b-body';
 
-    var meta = document.createElement('div');
-    meta.className = 'b-meta';
     var endStr = U.toHHMM(Math.min(1440, U.toMin(t.start) + (t.duration || 0)));
-    meta.textContent = t.start + '–' + endStr + (b.off ? ' · 航道外' : '');
-    div.appendChild(meta);
+    var timeTxt = t.start + '–' + endStr + (b.off ? ' · 航道外' : '');
+
+    /* 有子任务且放得下 → 让位给清单；否则显示标题（可折行） */
+    if (lay.rows > 0) {
+      var meta = document.createElement('div');
+      meta.className = 'b-meta';
+      meta.textContent = timeTxt + ' · ' + st.done + '/' + st.total;
+      body.appendChild(meta);
+
+      var wrap = document.createElement('div');
+      wrap.className = 'b-subs';
+      subs.slice(0, lay.rows).forEach(function (s) {
+        var row = document.createElement('div');
+        row.className = 'sub-row' + (s.done ? ' on' : '');
+        var box = document.createElement('button');
+        box.type = 'button';
+        box.className = 's-box';
+        box.dataset.sub = s.id;
+        box.setAttribute('aria-label', s.done ? '取消完成' : '完成');
+        box.innerHTML = checkSvg();
+        var txt = document.createElement('span');
+        txt.className = 's-text';
+        txt.textContent = s.text;
+        txt.title = s.text;
+        row.appendChild(box);
+        row.appendChild(txt);
+        wrap.appendChild(row);
+      });
+      body.appendChild(wrap);
+    } else {
+      var ti = document.createElement('div');
+      ti.className = 'b-title';
+      ti.textContent = t.title;
+      if (!lay.tiny) {
+        ti.style.webkitLineClamp = String(lay.lines);
+        try { ti.style.setProperty('-webkit-line-clamp', String(lay.lines)); } catch (e) { }
+        ti.style.maxHeight = (lay.lines * TITLE_LH) + 'px';
+        ti.setAttribute('data-lines', String(lay.lines));
+      }
+      body.appendChild(ti);
+
+      if (!lay.tiny) {
+        var meta2 = document.createElement('div');
+        meta2.className = 'b-meta';
+        meta2.textContent = timeTxt + (st.total ? ' · ' + st.done + '/' + st.total : '');
+        body.appendChild(meta2);
+      }
+    }
+
+    div.appendChild(body);
 
     var ck = document.createElement('button');
     ck.type = 'button';
     ck.className = 'b-check';
-    ck.setAttribute('aria-label', t.done ? '取消完成' : '完成');
-    ck.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5.2 5L20 6.5"/></svg>';
+    ck.setAttribute('aria-label', t.done ? '取消完成' : (st.total ? '全部完成' : '完成'));
+    ck.innerHTML = checkSvg();
     div.appendChild(ck);
 
     return div;
@@ -199,7 +279,11 @@
     flag.className = 'm-flag';
     pill.appendChild(flag);
     var b = document.createElement('b');
-    b.textContent = t.title;
+    var st = DM.store.subStats(t);
+    // 有子任务时用「首条 等 N 项」，避免整句拼在一起看不清
+    b.textContent = st.total
+      ? (t.subs[0] ? t.subs[0].text : t.title) + ' 等 ' + st.total + ' 项'
+      : t.title;
     pill.appendChild(b);
     pill.appendChild(document.createTextNode(' ' + t.start));
     div.appendChild(pill);
@@ -218,16 +302,19 @@
     return div;
   }
 
-  function doToggle(id) {
-    var t = DM.store.toggle(id);
-    if (!t) return;
+  function afterChange(t) {
     render();
     if (DM.month) DM.month.refresh();
     if (DM.remind) DM.remind.updateBadge();
     if (DM.banner) DM.banner.refresh();
-    if (DM.toast) {
-      if (t.done) DM.toast('点上了', t.title);
-    }
+    return t;
+  }
+
+  function doToggle(id) {
+    var t = DM.store.toggle(id);
+    if (!t) return;
+    afterChange(t);
+    if (DM.toast && t.done) DM.toast('点上了', t.title);
   }
 
   /* 回到此刻（或在非今天时回到当天第一件事） */

@@ -162,8 +162,64 @@
       db.tasks.push(t);
       found = t;
     }
+    normSubs(found);
     saveSoon();
     return found;
+  }
+
+  /* ---------------- 子任务 ---------------- */
+  /* 一句话里塞好几件事时的分隔符：换行、分号、顿号、竖线、逗号 */
+  var SPLIT_RE = /[\n\r;；、|｜,，]+/;
+
+  function splitTitle(raw) {
+    return String(raw == null ? '' : raw)
+      .split(SPLIT_RE)
+      .map(function (s) { return s.replace(/\s+/g, ' ').trim(); })
+      .filter(function (s) { return s.length > 0; });
+  }
+
+  function subId() { return 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+  /* 收敛子任务：去空、补 id、完成度回写父任务 */
+  function normSubs(t) {
+    if (!t) return t;
+    if (!Array.isArray(t.subs)) { t.subs = null; return t; }
+    t.subs = t.subs
+      .filter(function (s) { return s && String(s.text == null ? '' : s.text).trim(); })
+      .map(function (s) {
+        return {
+          id: s.id || subId(),
+          text: String(s.text).trim(),
+          done: !!s.done,
+          doneAt: s.done ? (s.doneAt || Date.now()) : null
+        };
+      });
+    if (!t.subs.length) { t.subs = null; return t; }
+    t.done = t.subs.every(function (s) { return s.done; });
+    t.doneAt = t.done ? (t.doneAt || Date.now()) : null;
+    return t;
+  }
+
+  function toggleSub(taskId, sid) {
+    var t = getTask(taskId);
+    if (!t || !t.subs || !t.subs.length) return null;
+    var hit = null;
+    t.subs.forEach(function (s) { if (s.id === sid) hit = s; });
+    if (!hit) return null;
+    hit.done = !hit.done;
+    hit.doneAt = hit.done ? Date.now() : null;
+    t.done = t.subs.every(function (s) { return s.done; });
+    t.doneAt = t.done ? Date.now() : null;
+    t.updatedAt = Date.now();
+    saveSoon();
+    return t;
+  }
+
+  function subStats(t) {
+    var list = (t && t.subs) || [];
+    var d = 0;
+    list.forEach(function (s) { if (s.done) d++; });
+    return { total: list.length, done: d };
   }
   function remove(id) {
     var t = getTask(id);
@@ -176,9 +232,18 @@
   function toggle(id) {
     var t = getTask(id);
     if (!t) return null;
-    t.done = !t.done;
-    t.doneAt = t.done ? Date.now() : null;
-    t.updatedAt = Date.now();
+    var now = Date.now();
+    if (t.subs && t.subs.length) {
+      // 父任务打勾 = 整组一起点／一起取消
+      var turnOn = !t.subs.every(function (s) { return s.done; });
+      t.subs.forEach(function (s) {
+        s.done = turnOn;
+        s.doneAt = turnOn ? now : null;
+      });
+    }
+    t.done = t.subs && t.subs.length ? t.subs.every(function (s) { return s.done; }) : !t.done;
+    t.doneAt = t.done ? now : null;
+    t.updatedAt = now;
     saveSoon();
     return t;
   }
@@ -372,6 +437,10 @@
     upsert: upsert,
     remove: remove,
     toggle: toggle,
+    toggleSub: toggleSub,
+    normSubs: normSubs,
+    splitTitle: splitTitle,
+    subStats: subStats,
     clearAll: clearAll,
     stats: stats,
     settings: settings,

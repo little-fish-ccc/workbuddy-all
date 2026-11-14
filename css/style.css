@@ -121,34 +121,60 @@ input,textarea,select{font-family:inherit;font-size:15px;color:inherit}
   border:1px solid var(--line);
   border-left:3px solid var(--c,#8A8377);
   box-shadow:0 1px 2px rgba(70,56,36,.05);
-  padding:5px 8px 4px 8px;
+  padding:6px 6px 5px 8px;
   overflow:hidden;
   transition:transform .12s ease, opacity .2s, box-shadow .15s;
   touch-action:manipulation;
-  display:flex;flex-direction:column;
+  display:flex;align-items:flex-start;gap:5px;
 }
 .blk:active{transform:scale(.985)}
+.blk .b-body{
+  flex:1 1 auto;min-width:0;
+  display:flex;flex-direction:column;
+}
 .blk .b-title{
-  font-size:13.5px;font-weight:600;line-height:1.25;
-  padding-right:22px;
+  font-size:13.5px;font-weight:600;line-height:17px;
   color:var(--ink);
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  display:-webkit-box;-webkit-box-orient:vertical;
+  overflow:hidden;
+  word-break:break-word;
 }
 .blk .b-meta{
-  font-size:11px;color:var(--muted);margin-top:1px;
+  font-size:11px;color:var(--muted);margin-top:1px;line-height:14px;
   font-variant-numeric:tabular-nums;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  flex:0 0 auto;
 }
-.blk.tiny{padding:2px 26px 2px 7px;justify-content:center}
-.blk.tiny .b-check{width:18px;height:18px;top:50%;margin-top:-9px;right:3px}
-.blk.tiny .b-title{font-size:12.5px}
+/* 子任务清单 */
+.blk .b-subs{display:flex;flex-direction:column;margin-top:1px}
+.blk .sub-row{
+  display:flex;align-items:center;gap:5px;
+  height:19px;flex:0 0 19px;
+}
+.blk .sub-row .s-box{
+  flex:0 0 13px;width:13px;height:13px;border-radius:4px;
+  display:grid;place-items:center;
+  background:#fff;border:1.3px solid #D9CEB6;color:transparent;
+  transition:background .12s,border-color .12s,color .12s;
+}
+.blk .sub-row .s-box svg{width:9px;height:9px;opacity:0;transition:opacity .1s}
+.blk .sub-row .s-box:active{transform:scale(.88)}
+.blk .sub-row .s-text{
+  flex:1 1 auto;min-width:0;
+  font-size:12px;line-height:1.25;color:var(--ink-2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.blk .sub-row.on .s-box{background:var(--ok);border-color:var(--ok);color:#fff}
+.blk .sub-row.on .s-box svg{opacity:1}
+.blk .sub-row.on .s-text{text-decoration:line-through;color:#A9A196}
+.blk.tiny{padding:0 6px 0 7px;align-items:center}
+.blk.tiny .b-title{font-size:12px;line-height:14px;-webkit-line-clamp:1;max-height:14px}
 .blk.tiny .b-meta{display:none}
 .blk.off{border-style:dashed;border-left-style:solid;border-left-width:3px}
 .blk.done{opacity:.55}
 .blk.done .b-title{text-decoration:line-through;text-decoration-thickness:1.2px;color:var(--ink-2)}
 .blk .b-check{
-  position:absolute;right:5px;top:5px;
-  width:21px;height:21px;border-radius:6px;
+  flex:0 0 auto;width:21px;height:21px;border-radius:6px;
   display:grid;place-items:center;
   color:transparent;
   background:#fff;
@@ -161,6 +187,10 @@ input,textarea,select{font-family:inherit;font-size:15px;color:inherit}
 .blk.done .b-check{color:#fff;background:var(--ok);border-color:var(--ok)}
 .blk.done .b-check svg{opacity:1}
 .blk .b-check:active{transform:scale(.88)}
+.blk.part .b-check{border-color:var(--ok)}
+.blk.part .b-check svg{opacity:.45;color:var(--ok)}
+.blk.tiny .b-check{width:15px;height:15px;border-radius:4px}
+.blk.tiny .b-check svg{width:9px;height:9px}
 .blk .b-att{position:absolute;right:6px;bottom:3px;font-size:9px;color:var(--muted);letter-spacing:1px}
 .blk.has-att .b-meta{padding-right:14px}
 
@@ -355,8 +385,50 @@ input,textarea,select{font-family:inherit;font-size:15px;color:inherit}
   font-size:19px;font-weight:600;
   letter-spacing:-.2px;
 }
+textarea.input-title{
+  display:block;resize:none;line-height:26px;
+  min-height:44px;overflow:hidden;
+}
 .input-title::placeholder{color:#C4BCAA;font-weight:500}
 .input-title:focus{border-bottom-color:var(--accent)}
+
+/* 标题里识别出的子任务 */
+.subpanel{
+  margin:-4px 0 16px;padding:10px 11px 9px;
+  background:var(--surface-2);
+  border:1px solid var(--line);border-radius:11px;
+}
+.sub-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}
+.sub-hint{font-size:11.5px;color:var(--muted);letter-spacing:.2px}
+.sub-merge{
+  flex:0 0 auto;font-size:11.5px;color:var(--ink-2);
+  padding:3px 8px;border-radius:7px;
+  background:#fff;border:1px solid var(--line);
+}
+.sub-list{display:flex;flex-direction:column;gap:5px}
+.subitem{display:flex;align-items:center;gap:7px}
+.s-check{
+  flex:0 0 20px;width:20px;height:20px;border-radius:6px;
+  display:grid;place-items:center;
+  background:#fff;border:1.4px solid #D9CEB6;color:transparent;
+  transition:background .12s,border-color .12s,color .12s;
+}
+.s-check svg{width:11px;height:11px;opacity:0;transition:opacity .1s}
+.subitem.on .s-check{background:var(--ok);border-color:var(--ok);color:#fff}
+.subitem.on .s-check svg{opacity:1}
+.s-input{
+  flex:1 1 auto;min-width:0;
+  background:#fff;border:1px solid var(--line);border-radius:8px;
+  padding:6px 9px;font-size:13.5px;color:var(--ink);outline:none;
+}
+.s-input:focus{border-color:var(--accent)}
+.subitem.on .s-input{color:#A9A196;text-decoration:line-through}
+.s-del{flex:0 0 auto;color:#BDB4A3;font-size:12px;padding:6px 4px}
+.sub-add{
+  margin-top:7px;font-size:12.5px;color:var(--ink-2);
+  padding:5px 9px;border-radius:8px;
+  border:1px dashed #D6CAB4;background:transparent;
+}
 textarea.input{resize:none;line-height:1.4}
 .select{padding-right:26px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239A9282' stroke-width='2.4' stroke-linecap='round'><path d='M6 9l6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 10px center}
 
