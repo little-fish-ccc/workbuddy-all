@@ -2,7 +2,7 @@
 
 一日航道式的日程工作台。纯前端、无后端，数据只存在你自己的设备上。
 
-网址：`https://little-fish-ccc.github.io/Dianmao/`
+网址：`https://little-fish-ccc.github.io/workbuddy-all/`
 
 ## 它是什么
 
@@ -46,7 +46,7 @@ tests/smoke.mjs     jsdom 冒烟测试
 
 改完代码要做两件事，缺一不可：
 
-1. `index.html` 里所有 `?v=20261114a` 改成新版本（字母递增，如 `20261113b`）
+1. `index.html` 里所有 `?v=20261114b` 改成新版本（字母递增，如 `20261113b`）
 2. `sw.js` 第一行 `VERSION` 改成同一个值
 
 测试会校验这两处是否一致。

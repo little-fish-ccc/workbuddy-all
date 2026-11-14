@@ -210,10 +210,14 @@
     $('tabDay').addEventListener('click', function () { setView('day'); });
     $('tabMonth').addEventListener('click', function () { setView('month'); });
     $('tabToday').addEventListener('click', function () {
-      DM.state.date = U.todayKey();
+      var t = U.todayKey();
+      var alreadyHere = DM.state.view === 'day' && DM.state.date === t;
       DM.state.followToday = true;
-      DM.day.setDate(U.todayKey());
+      if (alreadyHere) { DM.day.scrollToNow(); return; }   // 已经在这天，就回到此刻
+      DM.state.date = t;
+      DM.day.setDate(t);
       setView('day');
+      DM.day.scrollToNow();
     });
     $('fab').addEventListener('click', function () {
       DM.editor.open(null, { date: DM.state.date });

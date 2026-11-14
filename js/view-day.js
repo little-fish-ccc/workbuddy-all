@@ -230,6 +230,20 @@
     }
   }
 
+  /* 回到此刻（或在非今天时回到当天第一件事） */
+  function scrollToNow() {
+    var o = opts();
+    var top;
+    if (state.date === U.todayKey()) {
+      var off = DM.lane.nowOffset(o);
+      top = off == null ? 0 : off;
+    } else {
+      var first = DM.store.tasksOn(state.date)[0];
+      top = first ? (U.toMin(first.start) - o.originMin) * PX : 0;
+    }
+    el.main.scrollTop = Math.max(0, top - 96);
+  }
+
   function go(date) {
     state.date = date;
     state.scrolledOnce = false;
@@ -258,7 +272,7 @@
   }
 
   DM.day = {
-    init: init, render: render, redraw: redraw, go: go, setDate: setDate,
+    init: init, render: render, redraw: redraw, go: go, setDate: setDate, scrollToNow: scrollToNow,
     startTick: startTick,
     state: state,
     opts: opts,
