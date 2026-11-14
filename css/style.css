@@ -153,10 +153,13 @@ input,textarea,select{font-family:inherit;font-size:15px;color:inherit}
 }
 .blk .sub-row .s-box{
   flex:0 0 13px;width:13px;height:13px;border-radius:4px;
+  position:relative;
   display:grid;place-items:center;
   background:#fff;border:1.3px solid #D9CEB6;color:transparent;
   transition:background .12s,border-color .12s,color .12s;
 }
+/* 热区扩到整行高，手指好点 */
+.blk .sub-row .s-box::after{content:"";position:absolute;inset:-3px -6px}
 .blk .sub-row .s-box svg{width:9px;height:9px;opacity:0;transition:opacity .1s}
 .blk .sub-row .s-box:active{transform:scale(.88)}
 .blk .sub-row .s-text{
