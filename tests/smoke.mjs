@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { JSDOM, ResourceLoader, VirtualConsole } from 'jsdom';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const VERSION = '20261113a';
+const VERSION = '20261114a';
 
 let pass = 0, fail = 0;
 const failures = [];
