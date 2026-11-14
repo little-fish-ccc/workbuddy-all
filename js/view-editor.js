@@ -140,11 +140,21 @@
     });
 
     /* ---- 标题 → 自动拆条 ---- */
-    el.fTitle.addEventListener('input', function () {
+    var composing = false;
+    function onTitleInput() {
       autoGrow();
       var parts = DM.store.splitTitle(el.fTitle.value);
       if (parts.length < 2) { cur.subs = []; paintSubs(); return; }
       rebuildSubs(parts);
+    }
+    el.fTitle.addEventListener('compositionstart', function () { composing = true; });
+    el.fTitle.addEventListener('compositionend', function () {
+      composing = false;
+      onTitleInput();
+    });
+    el.fTitle.addEventListener('input', function () {
+      if (composing) { autoGrow(); return; }   // 拼音组词途中不拆，免得面板乱跳
+      onTitleInput();
     });
     el.fTitle.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); el.fStart && el.fStart.focus(); }

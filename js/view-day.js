@@ -166,14 +166,20 @@
 
   function layoutOf(height, subs) {
     var contentH = Math.max(0, height - PAD);
-    if (contentH < 34) return { tiny: true, lines: 1, rows: 0 };
+    if (contentH < 34) return { tiny: true, lines: 1, rows: 0, meta: false };
     if (subs && subs.length) {
       var room = contentH - META_H;
       var rows = Math.min(subs.length, Math.max(1, Math.floor(room / SUB_LH)));
-      return { tiny: false, lines: 0, rows: rows };
+      return { tiny: false, lines: 0, rows: rows, meta: true };
     }
-    var lines = Math.max(1, Math.min(6, Math.floor((contentH - META_H) / TITLE_LH)));
-    return { tiny: false, lines: lines, rows: 0 };
+    // 先看「标题 + 时间行」能放几行；放不下两行就让时间行让位给标题
+    var withMeta = Math.floor((contentH - META_H) / TITLE_LH);
+    if (withMeta >= 2) return { tiny: false, lines: Math.min(6, withMeta), rows: 0, meta: true };
+    var noMeta = Math.floor(contentH / TITLE_LH);
+    if (noMeta >= 2 && contentH >= 2 * TITLE_LH + 6) {   // 留点余量，别挤到贴边
+      return { tiny: false, lines: Math.min(6, noMeta), rows: 0, meta: false };
+    }
+    return { tiny: false, lines: 1, rows: 0, meta: withMeta >= 1 };
   }
 
   function checkSvg() {
@@ -241,7 +247,7 @@
       }
       body.appendChild(ti);
 
-      if (!lay.tiny) {
+      if (lay.meta !== false) {
         var meta2 = document.createElement('div');
         meta2.className = 'b-meta';
         meta2.textContent = timeTxt + (st.total ? ' · ' + st.done + '/' + st.total : '');

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { JSDOM, ResourceLoader, VirtualConsole } from 'jsdom';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const VERSION = '20261115a';
+const VERSION = '20261115b';
 
 let pass = 0, fail = 0;
 const failures = [];
@@ -247,6 +247,7 @@ console.log('\n\x1b[1m15. 空间够就折行显示\x1b[0m');
 const LONG = '把上周积压的会议纪要全部整理归档，再给相关同事回一封说明邮件';
 DM.store.upsert({ id: 'long1', date: T, start: '15:30', duration: 90, title: LONG, domain: 'work', remind: { before: -1 } });
 DM.store.upsert({ id: 'mid1', date: T, start: '17:30', duration: 45, title: LONG, domain: 'work', remind: { before: -1 } });
+DM.store.upsert({ id: 'hour1', date: T, start: '18:30', duration: 60, title: LONG, domain: 'work', remind: { before: -1 } });
 DM.store.upsert({ id: 'tiny1', date: T, start: '19:00', duration: 15, title: LONG, domain: 'work', remind: { before: -1 } });
 DM.day.render();
 const pick = id => Array.from($$('#blocks .blk')).find(b => b.dataset.id === id);
@@ -256,7 +257,10 @@ const ln = id => {
   return +(e.dataset.lines || 0);
 };
 ok('90 分钟块标题折成多行', ln('long1') >= 3, 'lines=' + ln('long1'));
-ok('45 分钟块只留 1 行', ln('mid1') === 1, 'lines=' + ln('mid1'));
+ok('45 分钟块优先折 2 行标题', ln('mid1') === 2, 'lines=' + ln('mid1'));
+ok('45 分钟块让出时间行换标题', !pick('mid1').querySelector('.b-meta'));
+ok('60 分钟块 2 行且保留时间行', ln('hour1') === 2 && !!pick('hour1').querySelector('.b-meta'),
+  'lines=' + ln('hour1'));
 ok('15 分钟块走 tiny（单行不折）', pick('tiny1').classList.contains('tiny'));
 ok('标题带了行数上限', !!pick('long1').querySelector('.b-title').style.maxHeight);
 
