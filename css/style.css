@@ -169,7 +169,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:inherit}
   position:absolute;left:0;right:0;height:24px;
   display:flex;align-items:center;gap:6px;
   padding:0 6px 0 0;
-  z-index:3;
+  z-index:6;
   cursor:pointer;
 }
 .mark .m-line{
