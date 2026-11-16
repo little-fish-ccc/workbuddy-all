@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { JSDOM, ResourceLoader, VirtualConsole } from 'jsdom';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const VERSION = '20261115d';
+const VERSION = '20261116a';
 
 let pass = 0, fail = 0;
 const failures = [];
@@ -307,7 +307,88 @@ DM.editor.close();
 DM.store.clearAll();
 DM.day.render();
 
-console.log('\n\x1b[1m17. 版本号一致性\x1b[0m');
+console.log('\n\x1b[1m17. 过期任务：放弃 / 延迟完成\x1b[0m');
+const past = U.addDays(today, -3);
+DM.store.clearAll();
+DM.store.upsert({ id: 'old1', date: past, start: '10:00', duration: 60, title: '上周没做的报告', domain: 'work', remind: { before: -1 } });
+DM.day.go(past);
+await sleep(80);
+eq('过去日期有 1 块', $$('#blocks .blk').length, 1);
+
+function longPress(el) {
+  const ev = new window.MouseEvent('pointerdown', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 });
+  el.dispatchEvent(ev);
+}
+const blkOld = () => $('#blocks .blk');
+
+longPress(blkOld());
+await sleep(520);
+ok('长按弹出操作面板', $('#sheet').hidden === false);
+ok('面板标题是该事项', /上周没做的报告/.test($('#sheetHead').textContent));
+ok('面板有放弃项', !!$('#sheetList .sheet-item[data-k="drop"]'));
+ok('面板有延迟完成项', !!$('#sheetList .sheet-item[data-k="delayed"]'));
+
+$('#sheetList .sheet-item[data-k="drop"]').click();
+await sleep(260);
+const stDrop = DM.store.stats(past);
+eq('放弃后 dropped=1', stDrop.dropped, 1);
+eq('放弃后不算未完成', stDrop.undone, 0);
+ok('块带上 dropped 类', blkOld().classList.contains('dropped'));
+ok('放弃的面板已关闭', $('#sheet').hidden === true);
+
+// 再长按 → 延迟完成
+longPress(blkOld());
+await sleep(520);
+$('#sheetList .sheet-item[data-k="delayed"]').click();
+await sleep(260);
+const tLate = DM.store.getTask('old1');
+ok('延迟完成同时记为已完成', tLate.done === true && tLate.delayed === true);
+ok('块带上 late 类', blkOld().classList.contains('late'));
+eq('延迟完成计数为 1', DM.store.stats(past).delayed, 1);
+
+// 恢复正常
+longPress(blkOld());
+await sleep(520);
+ok('已标记时出现「恢复正常」', !!$('#sheetList .sheet-item[data-k="reset"]'));
+$('#sheetList .sheet-item[data-k="reset"]').click();
+await sleep(260);
+const tBack = DM.store.getTask('old1');
+ok('恢复正常后回到未完成', !tBack.done && !tBack.delayed && !tBack.dropped);
+eq('恢复正常后未完成=1', DM.store.stats(past).undone, 1);
+
+// 今天的事不给标
+DM.day.go(today);
+await sleep(80);
+DM.store.upsert({ id: 'now1', date: today, start: '23:00', duration: 30, title: '今天的活', domain: 'work', remind: { before: -1 } });
+DM.day.render();
+const blkNow = $$('#blocks .blk').find(b => b.dataset.id === 'now1');
+if (blkNow) { longPress(blkNow); await sleep(520); }
+ok('今天的事长按不弹面板', $('#sheet').hidden === true);
+if ($('#sheet').hidden === false) DM.sheet.close();
+await sleep(200);
+
+console.log('\n\x1b[1m18. 月历三种状态小圆点\x1b[0m');
+DM.store.clearAll();
+const day3 = U.addDays(today, -8);
+DM.store.upsert({ id: 'm1', date: day3, start: '09:00', duration: 30, title: '没做', domain: 'work', remind: { before: -1 } });
+DM.store.upsert({ id: 'm2', date: day3, start: '11:00', duration: 30, title: '放弃了', domain: 'work', remind: { before: -1 } });
+DM.store.upsert({ id: 'm3', date: day3, start: '14:00', duration: 30, title: '补做的', domain: 'work', remind: { before: -1 } });
+DM.store.drop('m2');
+DM.store.setDelayed('m3', true);
+DM.month.render();
+await sleep(60);
+const cell = doc.querySelector('.mcell[data-date="' + day3 + '"]');
+ok('当天格子存在', !!cell);
+eq('三种圆点同时出现', cell.querySelectorAll('.dot').length, 3);
+ok('有未完成圆点', !!cell.querySelector('.dot.u'));
+ok('有放弃灰点', !!cell.querySelector('.dot.g'));
+ok('有延迟黄点', !!cell.querySelector('.dot.y'));
+
+DM.store.clearAll();
+DM.month.render();
+await sleep(40);
+
+console.log('\n\x1b[1m19. 版本号一致性\x1b[0m');
 const vers = new Set(Array.from(html.matchAll(/\?v=([a-z0-9]+)/g)).map(m => m[1]));
 eq('index.html 内版本号唯一', Array.from(vers), [VERSION]);
 const sw = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');

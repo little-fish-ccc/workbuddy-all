@@ -100,7 +100,7 @@
     var hits = [];
 
     DM.store.tasksOn(tk).forEach(function (t) {
-      if (t.done) return;
+      if (t.done || t.dropped) return;
       var before = (t.remind && t.remind.before != null) ? +t.remind.before : s.defaultRemind;
       if (before < 0) return;
       if (t.remind && t.remind.notified) return;
@@ -129,7 +129,7 @@
     var nm = U.nowMin();
     var best = null;
     DM.store.tasksOn(tk).forEach(function (t) {
-      if (t.done) return;
+      if (t.done || t.dropped) return;
       var st = U.toMin(t.start);
       if (st < nm - 5) return;
       if (!best || st < U.toMin(best.start)) best = t;

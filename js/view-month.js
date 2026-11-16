@@ -65,9 +65,16 @@
       if (key === selected) cls += ' sel';
 
       var pct = st.totalMin ? Math.min(100, Math.round(st.totalMin / 480 * 100)) : 0;
+
+      /* 三种状态各一枚小圆点，同时存在就一起排 */
+      var dots = '';
+      if (st.undone) dots += '<i class="dot u"></i>';
+      if (st.dropped) dots += '<i class="dot g"></i>';
+      if (st.delayed) dots += '<i class="dot y"></i>';
+
       html += '<div class="' + cls + '" data-date="' + key + '">' +
         '<span class="dnum">' + d.getDate() + '</span>' +
-        (st.undone ? '<i class="undo"></i>' : '') +
+        (dots ? '<div class="dots">' + dots + '</div>' : '') +
         (st.totalMin ? '<div class="heat"><i style="width:' + Math.max(12, pct) + '%"></i></div>' : '') +
         '</div>';
     }

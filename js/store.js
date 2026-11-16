@@ -243,7 +243,59 @@
     }
     t.done = t.subs && t.subs.length ? t.subs.every(function (s) { return s.done; }) : !t.done;
     t.doneAt = t.done ? now : null;
+    if (t.done) t.dropped = false;     // 打勾即视为要做，撤掉「放弃」
+    else t.delayed = false;            // 取消勾选，「延迟完成」也跟着失效
     t.updatedAt = now;
+    saveSoon();
+    return t;
+  }
+
+  /* ---------------- 过期未做的处理：放弃 / 延迟完成 ---------------- */
+  /* 放弃：这件事不做了，日历上标灰点 */
+  function drop(id) {
+    var t = getTask(id);
+    if (!t) return null;
+    t.dropped = true;
+    t.delayed = false;
+    t.done = false;
+    t.doneAt = null;
+    t.updatedAt = Date.now();
+    saveSoon();
+    return t;
+  }
+
+  /* 延迟完成：事后补上了，但不在原定那天，日历上标黄点 */
+  function setDelayed(id, on) {
+    var t = getTask(id);
+    if (!t) return null;
+    if (on) {
+      t.delayed = true;
+      t.dropped = false;
+      t.done = true;
+      t.doneAt = Date.now();
+      if (t.subs && t.subs.length) {
+        t.subs.forEach(function (s) { s.done = true; s.doneAt = s.doneAt || Date.now(); });
+      }
+    } else {
+      t.delayed = false;
+    }
+    t.updatedAt = Date.now();
+    saveSoon();
+    return t;
+  }
+
+  /* 清掉所有标记，回到普通未完成 */
+  function clearMarks(id) {
+    var t = getTask(id);
+    if (!t) return null;
+    t.dropped = false;
+    t.delayed = false;
+    t.done = false;
+    t.doneAt = null;
+    if (t.subs && t.subs.length) {
+      t.subs.forEach(function (s) { s.done = false; s.doneAt = null; });
+    }
+    t.updatedAt = Date.now();
     saveSoon();
     return t;
   }
@@ -259,12 +311,18 @@
   /* ---------------- 统计 ---------------- */
   function stats(date) {
     var list = tasksOn(date);
-    var undone = 0, totalMin = 0, done = 0;
+    var undone = 0, totalMin = 0, done = 0, dropped = 0, delayed = 0;
     list.forEach(function (t) {
-      if (t.done) done++; else undone++;
+      if (t.dropped) dropped++;
+      else if (t.done) done++;
+      else undone++;
+      if (t.done && t.delayed) delayed++;
       totalMin += (t.duration > 0 ? t.duration : 0);
     });
-    return { count: list.length, done: done, undone: undone, totalMin: totalMin };
+    return {
+      count: list.length, done: done, undone: undone,
+      dropped: dropped, delayed: delayed, totalMin: totalMin
+    };
   }
 
   /* ---------------- 设置 / 领域 ---------------- */
@@ -437,6 +495,9 @@
     upsert: upsert,
     remove: remove,
     toggle: toggle,
+    drop: drop,
+    setDelayed: setDelayed,
+    clearMarks: clearMarks,
     toggleSub: toggleSub,
     normSubs: normSubs,
     splitTitle: splitTitle,

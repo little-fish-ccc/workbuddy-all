@@ -10,10 +10,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="点卯">
-<link rel="manifest" href="./manifest.json?v=20261115d">
-<link rel="icon" href="./icons/icon-192.png?v=20261115d">
-<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=20261115d">
-<link rel="stylesheet" href="./css/style.css?v=20261115d">
+<link rel="manifest" href="./manifest.json?v=20261116a">
+<link rel="icon" href="./icons/icon-192.png?v=20261116a">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=20261116a">
+<link rel="stylesheet" href="./css/style.css?v=20261116a">
 </head>
 <body>
 <div class="app" id="app">
@@ -76,7 +76,12 @@
       <div class="month-grid" id="monthGrid"></div>
       <div class="month-legend">
         <span>少</span><i class="d1"></i><i class="d2"></i><i class="d3"></i><i class="d4"></i><span>多</span>
-        <span class="legend-gap">· 小圆点＝有未完成</span>
+        <span class="legend-gap">· 时长</span>
+      </div>
+      <div class="month-legend dots-legend">
+        <i class="dg u"></i><span>未完成</span>
+        <i class="dg g"></i><span>已放弃</span>
+        <i class="dg y"></i><span>延迟完成</span>
       </div>
     </section>
 
@@ -218,7 +223,7 @@
         <button class="btn ghost" id="btnClear">清空全部</button>
       </div>
     </div>
-    <p class="note-line" id="stVersion">点卯 v1 · 20261115d</p>
+    <p class="note-line" id="stVersion">点卯 v1 · 20261116a</p>
   </div>
   <div class="drawer-foot">
     <button class="btn primary" id="stDone">完成</button>
@@ -228,12 +233,21 @@
 <div class="lightbox" id="lightbox" hidden><img id="lightboxImg" alt=""></div>
 <div class="toast-wrap" id="toastWrap"></div>
 
-<script src="./js/store.js?v=20261115d"></script>
-<script src="./js/lane.js?v=20261115d"></script>
-<script src="./js/remind.js?v=20261115d"></script>
-<script src="./js/view-editor.js?v=20261115d"></script>
-<script src="./js/view-day.js?v=20261115d"></script>
-<script src="./js/view-month.js?v=20261115d"></script>
-<script src="./js/app.js?v=20261115d"></script>
+<!-- 长按操作面板 -->
+<div class="sheet-mask" id="sheetMask" hidden></div>
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-label="事项操作">
+  <div class="sheet-head" id="sheetHead"></div>
+  <div class="sheet-list" id="sheetList"></div>
+  <button class="sheet-cancel" id="sheetCancel" type="button">取消</button>
+</div>
+
+<script src="./js/store.js?v=20261116a"></script>
+<script src="./js/lane.js?v=20261116a"></script>
+<script src="./js/remind.js?v=20261116a"></script>
+<script src="./js/action.js?v=20261116a"></script>
+<script src="./js/view-editor.js?v=20261116a"></script>
+<script src="./js/view-day.js?v=20261116a"></script>
+<script src="./js/view-month.js?v=20261116a"></script>
+<script src="./js/app.js?v=20261116a"></script>
 </body>
 </html>

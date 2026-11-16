@@ -31,6 +31,9 @@
 
   function bind() {
     el.track.addEventListener('click', function (e) {
+      // 长按刚弹过面板，这一下点击不算数
+      if (Date.now() < press.until) { e.stopPropagation(); return; }
+
       var sb = e.target.closest('.s-box');
       if (sb) {
         e.stopPropagation();
@@ -64,6 +67,45 @@
       var top = $('topbar');
       if (top) top.classList.toggle('scrolled', el.main.scrollTop > 4);
     }, { passive: true });
+
+    /* ---- 长按：过去日期里没做的事，可标记「放弃 / 延迟完成」 ---- */
+    el.track.addEventListener('pointerdown', pressStart);
+    el.track.addEventListener('pointermove', pressMove);
+    el.track.addEventListener('pointerup', pressCancel);
+    el.track.addEventListener('pointercancel', pressCancel);
+    el.track.addEventListener('pointerleave', pressCancel);
+  }
+
+  var press = { timer: null, x: 0, y: 0, id: null, fired: false, until: 0 };
+
+  function pressCancel() {
+    if (press.timer) { clearTimeout(press.timer); press.timer = null; }
+  }
+
+  function pressStart(e) {
+    if (DM.sheet && DM.sheet.isOpen()) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    var node = e.target && e.target.closest ? e.target.closest('.blk,.mark') : null;
+    if (!node || !node.dataset.id) return;
+    if (state.date >= U.todayKey()) return;      // 只有今天之前才给标记
+
+    press.id = node.dataset.id;
+    press.x = e.clientX;
+    press.y = e.clientY;
+    press.fired = false;
+    pressCancel();
+    press.timer = setTimeout(function () {
+      press.timer = null;
+      press.fired = true;
+      press.until = Date.now() + 700;
+      if (navigator.vibrate) { try { navigator.vibrate(12); } catch (err) { } }
+      if (DM.sheet) DM.sheet.open(press.id);
+    }, 460);
+  }
+
+  function pressMove(e) {
+    if (!press.timer) return;
+    if (Math.abs(e.clientX - press.x) > 10 || Math.abs(e.clientY - press.y) > 10) pressCancel();
   }
 
   function opts() {
@@ -138,8 +180,11 @@
   function attn(date) {
     var st = DM.store.stats(date);
     if (!st.count) return '';
-    if (!st.undone) return ' · 全部点完';
-    return ' · 还有 ' + st.undone + ' 件';
+    var bits = [];
+    if (st.undone) bits.push('还有 ' + st.undone + ' 件');
+    if (st.dropped) bits.push(st.dropped + ' 件已放弃');
+    if (!bits.length) return ' · 全部点完';
+    return ' · ' + bits.join(' · ');
   }
 
   function scrollToFocus(o) {
@@ -196,6 +241,7 @@
 
     var div = document.createElement('div');
     div.className = 'blk' + (lay.tiny ? ' tiny' : '') + (t.done ? ' done' : '') +
+      (t.dropped ? ' dropped' : '') + (t.done && t.delayed ? ' late' : '') +
       (b.off ? ' off' : '') + (partial ? ' part' : '');
     div.dataset.id = t.id;
     div.style.cssText = 'top:' + b.top + 'px;height:' + b.height + 'px;left:' +
@@ -271,7 +317,8 @@
     var t = mk.task;
     var d = DM.store.domain(t.domain);
     var div = document.createElement('div');
-    div.className = 'mark' + (t.done ? ' done' : '');
+    div.className = 'mark' + (t.done ? ' done' : '') + (t.dropped ? ' dropped' : '') +
+      (t.done && t.delayed ? ' late' : '');
     div.dataset.id = t.id;
     div.style.cssText = 'top:' + mk.top + 'px;--c:' + d.color;
 

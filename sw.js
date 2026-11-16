@@ -1,7 +1,7 @@
 /* 点卯 · Service Worker
  * 版本号与 index.html 的 ?v= 同步递增：改完代码改这里的一行即可
  */
-var VERSION = '20261115d';
+var VERSION = '20261116a';
 var CACHE = 'dianmao-' + VERSION;
 var V = '?v=' + VERSION;
 
@@ -14,6 +14,7 @@ var CORE = [
   './js/store.js' + V,
   './js/lane.js' + V,
   './js/remind.js' + V,
+  './js/action.js' + V,
   './js/view-editor.js' + V,
   './js/view-day.js' + V,
   './js/view-month.js' + V,

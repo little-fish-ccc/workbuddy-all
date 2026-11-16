@@ -255,6 +255,7 @@
   function boot() {
     DM.store.init();
     DM.editor.init();
+    if (DM.sheet) DM.sheet.init();
     DM.day.init();
     DM.month.init();
     buildSettings();
