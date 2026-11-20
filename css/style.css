@@ -610,3 +610,52 @@ textarea.input{resize:none;line-height:1.4}
   body{background:#EBE5D7}
   .app{border-left:1px solid var(--line-soft);border-right:1px solid var(--line-soft);box-shadow:0 0 40px rgba(80,64,40,.06)}
 }
+
+/* ---------- 重复 ---------- */
+.rep-banner{
+  display:flex;align-items:center;gap:8px;
+  margin:2px 0 12px;padding:8px 10px;
+  background:#F3EEE0;border:1px dashed #D9CDB4;border-radius:10px;
+  font-size:12px;color:var(--ink-2);
+}
+.rep-banner .rb-ico{color:var(--accent);font-size:13px;line-height:1;flex:0 0 auto}
+.rep-banner .rb-text{
+  flex:1 1 auto;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.rep-banner .rb-btn{
+  flex:0 0 auto;font-size:11.5px;font-weight:600;color:var(--accent);
+  padding:3px 8px;border-radius:7px;background:#fff;border:1px solid #E3D6C2;
+}
+.rep-banner.all{background:var(--accent-soft);border-color:#E0B3A5;border-style:solid}
+.rep-banner.all .rb-btn{color:#fff;background:var(--accent);border-color:var(--accent)}
+
+.rep-panel{
+  margin-top:9px;padding:10px 11px;
+  background:var(--surface-2);
+  border:1px solid var(--line);border-radius:11px;
+  display:flex;flex-direction:column;gap:9px;
+}
+.rep-line{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.rep-t{font-size:12.5px;color:var(--muted);flex:0 0 auto}
+.input.rep-num{width:58px;padding:6px 8px;text-align:center;font-variant-numeric:tabular-nums}
+.rep-week{display:flex;gap:6px}
+.rep-week .wk{
+  flex:1 1 0;min-width:0;height:32px;border-radius:8px;
+  background:#fff;border:1px solid var(--line);
+  font-size:12.5px;color:var(--ink-2);
+  transition:background .13s,color .13s,border-color .13s;
+}
+.rep-week .wk.on{background:#3A3229;border-color:#3A3229;color:#FBF7EC;font-weight:600}
+.rep-week .wk:active{transform:scale(.94)}
+.rep-chk{display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--ink-2);margin-left:auto}
+.rep-chk input{width:15px;height:15px;margin:0;accent-color:var(--accent)}
+.input.rep-end{width:auto;flex:0 0 auto;padding:6px 26px 6px 10px;font-size:12.5px}
+.input.rep-until{flex:1 1 auto;width:auto;min-width:0;padding:6px 9px;font-size:12.5px}
+
+/* 重复任务：左侧色条改虚线；航标小方块改竖条纹 */
+.blk.rep{border-left-style:dashed}
+.mark.rep .m-flag{
+  background:repeating-linear-gradient(180deg,var(--c,#8A8377) 0 1.6px,transparent 1.6px 3.2px);
+}
+.mark .m-rep{font-size:10px;color:var(--muted);line-height:1;flex:0 0 auto;letter-spacing:0}

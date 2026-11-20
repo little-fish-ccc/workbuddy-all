@@ -184,6 +184,14 @@
         })).then(function (arr) { t.attachments = arr; }));
       }
     });
+    Object.keys(data.series || {}).forEach(function (sid) {
+      var tp = data.series[sid].template || {};
+      if (tp.attachments && tp.attachments.length) {
+        jobs.push(Promise.all(tp.attachments.map(function (k) {
+          return DM.store.fileGet(k).then(function (src) { return { key: k, src: src }; });
+        })).then(function (arr) { tp.attachments = arr; }));
+      }
+    });
     Promise.all(jobs).then(function () {
       var payload = {
         type: 'dianmao-backup', v: 1,
@@ -252,14 +260,27 @@
   }
 
   /* ---------------- 启动 ---------------- */
+  /* 隔几天没打开时，把这几天的重复实例补上，别让航道断档 */
+  var caughtKey = '';
+  function catchUpRepeat() {
+    if (!DM.repeat) return;
+    var t = U.todayKey();
+    if (caughtKey === t) return;
+    caughtKey = t;
+    DM.repeat.ensure(U.addDays(t, -31), t);
+  }
+  DM.catchUpRepeat = catchUpRepeat;
+
   function boot() {
     DM.store.init();
+    catchUpRepeat();
     DM.editor.init();
     if (DM.sheet) DM.sheet.init();
     DM.day.init();
     DM.month.init();
     buildSettings();
     bind();
+    DM.day.render();
     banner.refresh();
     DM.remind.start();
     DM.day.startTick();
@@ -294,6 +315,7 @@
     document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'visible') {
         var t = U.todayKey();
+        catchUpRepeat();
         if (DM.state.followToday && DM.state.date !== t) {
           DM.state.date = t;
           DM.day.setDate(t);

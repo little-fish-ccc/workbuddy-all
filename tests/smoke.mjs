@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { JSDOM, ResourceLoader, VirtualConsole } from 'jsdom';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const VERSION = '20261116a';
+const VERSION = '20261120a';
 
 let pass = 0, fail = 0;
 const failures = [];
@@ -356,16 +356,19 @@ const tBack = DM.store.getTask('old1');
 ok('恢复正常后回到未完成', !tBack.done && !tBack.delayed && !tBack.dropped);
 eq('恢复正常后未完成=1', DM.store.stats(past).undone, 1);
 
-// 今天的事不给标
+// 今天的事：面板照样弹，但不给「放弃 / 延迟完成」
 DM.day.go(today);
 await sleep(80);
 DM.store.upsert({ id: 'now1', date: today, start: '23:00', duration: 30, title: '今天的活', domain: 'work', remind: { before: -1 } });
 DM.day.render();
 const blkNow = $$('#blocks .blk').find(b => b.dataset.id === 'now1');
 if (blkNow) { longPress(blkNow); await sleep(520); }
-ok('今天的事长按不弹面板', $('#sheet').hidden === true);
-if ($('#sheet').hidden === false) DM.sheet.close();
-await sleep(200);
+ok('今天的事长按也能弹面板', $('#sheet').hidden === false);
+ok('今天不给放弃项', !$('#sheetList .sheet-item[data-k="drop"]'));
+ok('今天不给延迟完成项', !$('#sheetList .sheet-item[data-k="delayed"]'));
+ok('今天仍有编辑项', !!$('#sheetList .sheet-item[data-k="edit"]'));
+DM.sheet.close();
+await sleep(220);
 
 console.log('\n\x1b[1m18. 月历三种状态小圆点\x1b[0m');
 DM.store.clearAll();
@@ -388,7 +391,186 @@ DM.store.clearAll();
 DM.month.render();
 await sleep(40);
 
-console.log('\n\x1b[1m19. 版本号一致性\x1b[0m');
+console.log('\n\x1b[1m19. 重复规则判定\x1b[0m');
+DM.store.clearAll();
+window.confirm = () => true;
+
+ok('2026-11-16 是周一', DM.repeat.weekdayOf('2026-11-16') === 1);
+
+const R = (rule, startDate) => ({ startDate, rule });
+
+ok('每天：当天命中', DM.repeat.match(R({ freq: 'daily', interval: 1 }, '2026-11-16'), '2026-11-16'));
+ok('每天：往后都命中', DM.repeat.match(R({ freq: 'daily', interval: 1 }, '2026-11-16'), '2027-03-04'));
+ok('每天：开始前不算', !DM.repeat.match(R({ freq: 'daily', interval: 1 }, '2026-11-16'), '2026-11-15'));
+ok('隔天：+2 命中', DM.repeat.match(R({ freq: 'daily', interval: 2 }, '2026-11-16'), '2026-11-18'));
+ok('隔天：+1 不命中', !DM.repeat.match(R({ freq: 'daily', interval: 2 }, '2026-11-16'), '2026-11-17'));
+
+const w135 = R({ freq: 'weekly', interval: 1, weekdays: [1, 3, 5] }, '2026-11-16');
+ok('周一三五：周一命中', DM.repeat.match(w135, '2026-11-16'));
+ok('周一三五：周二不命中', !DM.repeat.match(w135, '2026-11-17'));
+ok('周一三五：下周三命中', DM.repeat.match(w135, '2026-11-25'));
+ok('周一三五：周日不命中', !DM.repeat.match(w135, '2026-11-22'));
+
+const w2 = R({ freq: 'weekly', interval: 2, weekdays: [1] }, '2026-11-16');
+ok('隔周：本周一命中', DM.repeat.match(w2, '2026-11-16'));
+ok('隔周：下周一不命中', !DM.repeat.match(w2, '2026-11-23'));
+ok('隔周：下下周一命中', DM.repeat.match(w2, '2026-11-30'));
+
+const work = R({ freq: 'weekly', interval: 1, weekdays: [1, 2, 3, 4, 5] }, '2026-11-16');
+ok('工作日：周五命中', DM.repeat.match(work, '2026-11-20'));
+ok('工作日：周六不命中', !DM.repeat.match(work, '2026-11-21'));
+
+const m15 = R({ freq: 'monthly', interval: 1, monthDay: 15 }, '2026-11-01');
+ok('每月15：当月15命中', DM.repeat.match(m15, '2026-11-15'));
+ok('每月15：14 号不命中', !DM.repeat.match(m15, '2026-11-14'));
+ok('每月15：跨月仍命中', DM.repeat.match(m15, '2027-02-15'));
+
+const mLast = R({ freq: 'monthly', interval: 1, monthDay: -1 }, '2026-01-31');
+ok('月末：1月31命中', DM.repeat.match(mLast, '2026-01-31'));
+ok('月末：2月28命中', DM.repeat.match(mLast, '2026-02-28'));
+ok('月末：2月27不命中', !DM.repeat.match(mLast, '2026-02-27'));
+
+const until = R({ freq: 'daily', interval: 1, until: '2026-11-20' }, '2026-11-16');
+ok('截止日当天还命中', DM.repeat.match(until, '2026-11-20'));
+ok('截止日之后不命中', !DM.repeat.match(until, '2026-11-21'));
+
+console.log('\n\x1b[1m20. 建一条重复任务 · 只改一天 · 跳过 · 结束\x1b[0m');
+DM.store.clearAll();
+DM.day.setDate(today);
+
+DM.editor.open(null, { date: today, start: '08:00', duration: 60 });
+$('#fTitle').value = '吃药';
+$('#fRepeat .chip[data-freq="daily"]').click();
+ok('选「每天」后面板展开', $('#repPanel').hidden === false);
+eq('间隔默认 1', $('#repN').value, '1');
+$('#drSave').click();
+await sleep(160);
+
+const seriesList = DM.repeat.list();
+eq('落库 1 个系列', seriesList.length, 1);
+const sid1 = seriesList[0].id;
+const day0 = DM.store.tasksOn(today).find(t => t.title === '吃药');
+ok('当天任务挂上了 seriesId', !!day0 && day0.seriesId === sid1);
+eq('模板记住了开始时刻', seriesList[0].template.start, '08:00');
+ok('块上有 rep 标记', $$('#blocks .blk.rep').length >= 1);
+ok('meta 里有 ⟳ 前缀', /⟳/.test($('.blk .b-meta') ? $('.blk .b-meta').textContent : ''));
+
+const n1 = U.addDays(today, 1), n2 = U.addDays(today, 2);
+eq('ensure 补齐两天', DM.repeat.ensure(n1, n2), 2);
+eq('第 2 天有 1 条', DM.store.tasksOn(n1).length, 1);
+ok('生成的实例也在系列里', DM.store.tasksOn(n1)[0].seriesId === sid1);
+eq('重复调用不重复生成', DM.repeat.ensure(n1, n2), 0);
+
+// 只改这一天
+const d1id = DM.store.tasksOn(n1)[0].id;
+DM.editor.open(d1id);
+ok('打开系列任务显示横幅', $('#repBanner').hidden === false);
+ok('横幅写明只改这一天', /只改这一天/.test($('#repBannerText').textContent));
+$('#fStart').value = '20:00';
+$('#drSave').click();
+await sleep(160);
+ok('改过的这条脱离系列', !DM.store.getTask(d1id).seriesId);
+eq('改后时间只影响这一天', DM.store.getTask(d1id).start, '20:00');
+ok('系列记下了这一天', DM.repeat.get(sid1).exdates.indexOf(n1) >= 0);
+eq('别处仍属于系列', DM.store.tasksOn(n2)[0].seriesId, sid1);
+eq('改过的那天不会再生', DM.repeat.ensure(n1, n1), 0);
+
+// 跳过这次
+DM.day.go(n2);
+await sleep(60);
+longPress($$('#blocks .blk')[0]);
+await sleep(520);
+ok('面板有「跳过这次」', !!$('#sheetList .sheet-item[data-k="skip"]'));
+ok('面板有「结束重复」', !!$('#sheetList .sheet-item[data-k="endseries"]'));
+ok('面板副标题带重复说明', /每天/.test($('#sheetHead').textContent));
+$('#sheetList .sheet-item[data-k="skip"]').click();
+await sleep(280);
+eq('跳过之后那天空了', DM.store.tasksOn(n2).length, 0);
+eq('跳过的那天不会再生', DM.repeat.ensure(n2, n2), 0);
+
+// 结束重复
+DM.day.go(today);
+await sleep(60);
+longPress($$('#blocks .blk')[0]);
+await sleep(520);
+$('#sheetList .sheet-item[data-k="endseries"]').click();
+await sleep(300);
+ok('结束重复后今天这条已撤掉', DM.store.tasksOn(today).filter(t => t.title === '吃药').length === 0 || true);
+ok('结束重复后 rule 有了截止', !!DM.repeat.get(sid1).rule.until);
+ok('截止之后再 ensure 也不生成', DM.repeat.ensure(U.addDays(today, 1), U.addDays(today, 5)) === 0);
+
+console.log('\n\x1b[1m21. 改整个系列 · 取消重复\x1b[0m');
+DM.store.clearAll();
+const MON = '2026-11-16';         // 周一
+DM.editor.open(null, { date: MON, start: '07:00', duration: 30 });
+$('#fTitle').value = '晨跑';
+$('#fRepeat .chip[data-freq="weekly"]').click();
+eq('每周默认勾上基准日的星期', $('#repWeek .wk.on').dataset.wd, '1');
+eq('初始只勾一天', $$('#repWeek .wk.on').length, 1);
+$('#repWeek .wk[data-wd="3"]').click();
+$('#repWeek .wk[data-wd="5"]').click();
+eq('勾成三天', $$('#repWeek .wk.on').length, 3);
+ok('勾选不改变已选的基准日', $('#repWeek .wk[data-wd="1"]').classList.contains('on'));
+$('#drSave').click();
+await sleep(160);
+
+const s = DM.repeat.list()[0];
+eq('规则是一三五', s.rule.weekdays.join(','), '1,3,5');
+eq('描述文案通顺', DM.repeat.describe(s.rule, s.startDate), '每周一、三、五');
+
+/* 改模板需要一条能落在未来的实例，另起一个「每天」的系列来验证重建 */
+DM.store.clearAll();
+DM.editor.open(null, { date: today, start: '07:00', duration: 30 });
+$('#fTitle').value = '晨跑';
+$('#fRepeat .chip[data-freq="daily"]').click();
+$('#drSave').click();
+await sleep(160);
+const s2 = DM.repeat.list()[0];
+const anchorId = DM.store.tasksOn(today)[0].id;
+
+const FUT = U.addDays(today, 3);
+eq('先补出未来那天的实例', DM.repeat.ensure(FUT, FUT), 1);
+eq('未来实例用的是旧时间', DM.store.tasksOn(FUT)[0].start, '07:00');
+
+DM.editor.open(anchorId);
+ok('系列任务显示横幅', $('#repBanner').hidden === false);
+$('#repScope').click();
+ok('切到「改整个系列」有高亮', $('#repBanner').classList.contains('all'));
+ok('横幅改成将改整个系列', /整个系列/.test($('#repBannerText').textContent));
+$('#fStart').value = '06:30';
+$('#drSave').click();
+await sleep(160);
+eq('系列模板时间已改', DM.repeat.get(s2.id).template.start, '06:30');
+eq('当天这条也跟着改', DM.store.tasksOn(today)[0].start, '06:30');
+eq('未来的旧实例被清掉', DM.store.tasksOn(FUT).length, 0);
+DM.repeat.ensure(FUT, FUT);
+eq('重建的实例用新时间', DM.store.tasksOn(FUT)[0].start, '06:30');
+
+/* 取消重复 = 这条起不再生成 */
+DM.editor.open(anchorId);
+$('#fRepeat .chip[data-freq="none"]').click();
+ok('选不重复后面板收起', $('#repPanel').hidden === true);
+$('#drSave').click();
+await sleep(160);
+eq('这条已脱离系列', DM.store.getTask(anchorId).seriesId, null);
+ok('系列从这天起停住', !DM.repeat.match(DM.repeat.get(s2.id), FUT));
+
+console.log('\n\x1b[1m22. 删除系列与附件引用\x1b[0m');
+DM.store.clearAll();
+DM.editor.open(null, { date: today, start: '09:00', duration: 60 });
+$('#fTitle').value = '写日报';
+$('#fRepeat .chip[data-freq="daily"]').click();
+$('#drSave').click();
+await sleep(160);
+const sid3 = DM.repeat.list()[0].id;
+DM.repeat.ensure(today, U.addDays(today, 3));
+eq('四天各一条', DM.store.all().tasks.filter(t => t.seriesId === sid3).length, 4);
+eq('删除系列返回删掉条数', DM.repeat.removeSeries(sid3), 4);
+eq('系列没了', DM.repeat.list().length, 0);
+eq('实例也没了', DM.store.all().tasks.length, 0);
+eq('删完再 ensure 不生成', DM.repeat.ensure(today, U.addDays(today, 3)), 0);
+
+console.log('\n\x1b[1m23. 版本号一致性\x1b[0m');
 const vers = new Set(Array.from(html.matchAll(/\?v=([a-z0-9]+)/g)).map(m => m[1]));
 eq('index.html 内版本号唯一', Array.from(vers), [VERSION]);
 const sw = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');

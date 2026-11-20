@@ -11,9 +11,18 @@
   var cur = {
     id: null, atts: [], pending: [], duration: 0, domain: 'work',
     custom: false, prevStart: '', prevDate: '', prevRemind: 10, dirty: false,
-    subs: []
+    subs: [], seriesId: null, seriesEdit: false, freq: 'none', weekdays: []
   };
   var seq = 0;
+
+  var FREQ_CHIPS = [
+    { k: 'none', label: '不重复' },
+    { k: 'daily', label: '每天' },
+    { k: 'work', label: '工作日' },
+    { k: 'weekly', label: '每周' },
+    { k: 'monthly', label: '每月' }
+  ];
+  var WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];   // 展示顺序：一 二 三 四 五 六 日
 
   function $(id) { return document.getElementById(id); }
   function rid() { return 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
@@ -39,6 +48,20 @@
     el.fAtts = $('fAtts');
     el.fFile = $('fFile');
     el.drDelete = $('drDelete');
+
+    el.fRepeat = $('fRepeat');
+    el.repPanel = $('repPanel');
+    el.repN = $('repN');
+    el.repUnit = $('repUnit');
+    el.repWeek = $('repWeek');
+    el.repLineDom = $('repLineDom');
+    el.repDom = $('repDom');
+    el.repLast = $('repLast');
+    el.repEnd = $('repEnd');
+    el.repUntil = $('repUntil');
+    el.repBanner = $('repBanner');
+    el.repBannerText = $('repBannerText');
+    el.repScope = $('repScope');
 
     buildChips();
     bind();
@@ -81,6 +104,26 @@
       o.value = m;
       o.textContent = m === -1 ? '不提醒' : m === 0 ? '准时' : (m < 60 ? m + ' 分钟前' : (m / 60) + ' 小时前');
       el.fRemind.appendChild(o);
+    });
+
+    el.fRepeat.innerHTML = '';
+    FREQ_CHIPS.forEach(function (f) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip';
+      b.dataset.freq = f.k;
+      b.textContent = f.label;
+      el.fRepeat.appendChild(b);
+    });
+
+    el.repWeek.innerHTML = '';
+    WEEK_ORDER.forEach(function (d) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'wk';
+      b.dataset.wd = d;
+      b.textContent = DM.repeat.WEEK_CN[d];
+      el.repWeek.appendChild(b);
     });
   }
 
@@ -137,6 +180,63 @@
     el.fFile.addEventListener('change', onPick);
     el.fDate.addEventListener('change', function () {
       el.title.textContent = (cur.id ? '编辑事项' : '新建事项') + ' · ' + U.fmtDayTitle(el.fDate.value || U.todayKey());
+      if (cur.freq === 'weekly' && cur.weekdays.length === 1) {
+        cur.weekdays = [DM.repeat.weekdayOf(el.fDate.value || U.todayKey())];
+        paintWeek();
+      }
+      if (cur.freq === 'monthly' && !cur.domTouched) {
+        el.repDom.value = U.parseKey(el.fDate.value || U.todayKey()).getDate();
+      }
+    });
+
+    /* ---- 重复 ---- */
+    el.fRepeat.addEventListener('click', function (e) {
+      var b = e.target.closest('.chip');
+      if (!b) return;
+      cur.freq = b.dataset.freq;
+      if (cur.freq === 'weekly' && !cur.weekdays.length) {
+        cur.weekdays = [DM.repeat.weekdayOf(el.fDate.value || U.todayKey())];
+      }
+      if (cur.freq === 'monthly' && !cur.domTouched) {
+        el.repDom.value = U.parseKey(el.fDate.value || U.todayKey()).getDate();
+      }
+      paintRepeat();
+    });
+
+    el.repWeek.addEventListener('click', function (e) {
+      var b = e.target.closest('.wk');
+      if (!b) return;
+      var wd = +b.dataset.wd;
+      var i = cur.weekdays.indexOf(wd);
+      if (i >= 0) {
+        if (cur.weekdays.length === 1) { DM.toast && DM.toast('至少留一天', '不然就重复不起来了'); return; }
+        cur.weekdays.splice(i, 1);
+      } else {
+        cur.weekdays.push(wd);
+      }
+      paintWeek();
+      if (cur.seriesId) paintBanner();
+    });
+
+    el.repDom.addEventListener('input', function () { cur.domTouched = true; });
+    el.repLast.addEventListener('change', function () {
+      el.repDom.disabled = el.repLast.checked;
+    });
+    el.repEnd.addEventListener('change', function () {
+      var on = el.repEnd.value === 'until';
+      el.repUntil.hidden = !on;
+      if (on && !el.repUntil.value) el.repUntil.value = U.addDays(el.fDate.value || U.todayKey(), 30);
+    });
+    el.repUntil.addEventListener('change', function () {
+      if (el.repUntil.value && el.repUntil.value < el.fDate.value) {
+        el.repUntil.value = el.fDate.value;
+        DM.toast && DM.toast('结束日不能早于开始日', '已改回开始那天');
+      }
+    });
+    el.repScope.addEventListener('click', function () {
+      cur.seriesEdit = !cur.seriesEdit;
+      paintBanner();
+      paintRepeat();
     });
 
     /* ---- 标题 → 自动拆条 ---- */
@@ -312,6 +412,115 @@
     });
   }
 
+  /* ---------------- 重复 ---------------- */
+  function freqOf(rule) {
+    if (!rule) return 'none';
+    if (rule.freq === 'daily') return 'daily';
+    if (rule.freq === 'weekly') {
+      var w = rule.weekdays || [];
+      if ((+rule.interval || 1) === 1 && w.length === 5 && w.indexOf(0) < 0 && w.indexOf(6) < 0) return 'work';
+      return 'weekly';
+    }
+    return 'monthly';
+  }
+
+  function sameRule(a, b) {
+    if (!a || !b) return !a && !b;
+    if (a.freq !== b.freq) return false;
+    if ((+a.interval || 1) !== (+b.interval || 1)) return false;
+    if ((a.until || '') !== (b.until || '')) return false;
+    if (a.freq === 'weekly') {
+      var x = (a.weekdays || []).slice().sort().join(','),
+        y = (b.weekdays || []).slice().sort().join(',');
+      if (x !== y) return false;
+    }
+    if (a.freq === 'monthly' && (+a.monthDay || 1) !== (+b.monthDay || 1)) return false;
+    return true;
+  }
+
+  function paintRepeat() {
+    Array.prototype.forEach.call(el.fRepeat.children, function (b) {
+      b.classList.toggle('on', b.dataset.freq === cur.freq);
+    });
+    var withPanel = cur.freq === 'daily' || cur.freq === 'weekly' || cur.freq === 'monthly';
+    el.repPanel.hidden = !withPanel;
+    if (!withPanel) return;
+    el.repUnit.textContent = cur.freq === 'weekly' ? '周' : cur.freq === 'monthly' ? '个月' : '天';
+    el.repWeek.hidden = cur.freq !== 'weekly';
+    el.repLineDom.hidden = cur.freq !== 'monthly';
+    if (!(+el.repN.value > 0)) el.repN.value = 1;
+    el.repDom.disabled = el.repLast.checked;
+    el.repUntil.hidden = el.repEnd.value !== 'until';
+    paintWeek();
+  }
+
+  function paintWeek() {
+    Array.prototype.forEach.call(el.repWeek.children, function (b) {
+      b.classList.toggle('on', cur.weekdays.indexOf(+b.dataset.wd) >= 0);
+    });
+  }
+
+  function paintBanner() {
+    var s = cur.seriesId ? DM.repeat.get(cur.seriesId) : null;
+    if (!s) { el.repBanner.hidden = true; return; }
+    el.repBanner.hidden = false;
+    el.repBanner.classList.toggle('all', cur.seriesEdit);
+    el.repBannerText.textContent = DM.repeat.describe(s.rule, s.startDate) +
+      (cur.seriesEdit ? ' · 将改整个系列' : ' · 只改这一天');
+    el.repScope.textContent = cur.seriesEdit ? '只改这一天' : '改整个系列';
+  }
+
+  function readRule() {
+    if (cur.freq === 'none') return null;
+    var rule = { freq: cur.freq, interval: 1, until: null };
+    if (cur.freq === 'work') {
+      rule.freq = 'weekly';
+      rule.weekdays = [1, 2, 3, 4, 5];
+    } else {
+      rule.interval = Math.max(1, Math.min(30, parseInt(el.repN.value, 10) || 1));
+      if (cur.freq === 'weekly') rule.weekdays = cur.weekdays.slice();
+      if (cur.freq === 'monthly') {
+        rule.monthDay = el.repLast.checked ? -1
+          : Math.max(1, Math.min(31, parseInt(el.repDom.value, 10) || 1));
+      }
+    }
+    if (el.repEnd.value === 'until') {
+      var d = el.fDate.value || U.todayKey();
+      var u = el.repUntil.value || d;
+      rule.until = u < d ? d : u;
+    }
+    return rule;
+  }
+
+  function loadRepeat(task, date) {
+    var s = task && task.seriesId ? DM.repeat.get(task.seriesId) : null;
+    cur.seriesId = s ? s.id : null;
+    cur.seriesEdit = false;
+    cur.domTouched = false;
+
+    if (s && s.rule) {
+      cur.freq = freqOf(s.rule);
+      cur.weekdays = (s.rule.weekdays && s.rule.weekdays.length)
+        ? s.rule.weekdays.slice()
+        : [DM.repeat.weekdayOf(s.startDate || date)];
+      el.repN.value = s.rule.interval || 1;
+      el.repDom.value = (+s.rule.monthDay > 0) ? s.rule.monthDay : U.parseKey(date).getDate();
+      el.repLast.checked = s.rule.monthDay === -1;
+      el.repEnd.value = s.rule.until ? 'until' : 'never';
+      el.repUntil.value = s.rule.until || '';
+    } else {
+      cur.freq = 'none';
+      cur.weekdays = [DM.repeat.weekdayOf(date)];
+      el.repN.value = 1;
+      el.repDom.value = U.parseKey(date).getDate();
+      el.repLast.checked = false;
+      el.repEnd.value = 'never';
+      el.repUntil.value = '';
+    }
+    paintRepeat();
+    paintBanner();
+  }
+
   function open(id, defaults) {
     defaults = defaults || {};
     cur.id = id || null;
@@ -360,6 +569,7 @@
     paintDomain();
     paintAtts();
     paintSubs();
+    loadRepeat(task, el.fDate.value || U.todayKey());
     autoGrow();
     el.drawer.classList.add('open');
     el.drawer.setAttribute('aria-hidden', 'false');
@@ -525,6 +735,8 @@
     var start = el.fStart.value || '09:00';
     var before = +el.fRemind.value;
     var duration = cur.duration > 0 ? Math.min(720, cur.duration) : null;
+    var note = el.fNote.value.trim();
+    var rule = readRule();
 
     var old = cur.id ? DM.store.getTask(cur.id) : null;
     var changed = !old || old.start !== start || old.date !== date ||
@@ -538,13 +750,43 @@
       title: title,
       subs: subs,
       domain: cur.domain,
-      note: el.fNote.value.trim(),
+      note: note,
       attachments: cur.atts.slice(),
+      seriesId: null,
       remind: {
         before: before,
         notified: changed ? false : !!(old && old.remind && old.remind.notified)
       }
     };
+
+    /* ---- 重复系列 ---- */
+    var s = cur.seriesId ? DM.repeat.get(cur.seriesId) : null;
+    var scopeAll = !!(s && (cur.seriesEdit || !sameRule(rule, s.rule)));
+    var template = {
+      title: title, start: start, duration: duration, domain: cur.domain,
+      note: note,
+      subs: subs ? subs.map(function (x) { return { text: x.text }; }) : [],
+      attachments: cur.atts.slice(),
+      remindBefore: before
+    };
+
+    if (s && scopeAll) {
+      if (!rule) {
+        DM.repeat.end(s.id, old ? old.date : date);      // 从这条起不再重复
+        DM.repeat.detach(s.id, old ? old.date : date);
+        payload.seriesId = null;
+      } else {
+        DM.repeat.update(s.id, rule, template);
+        payload.seriesId = s.id;
+      }
+    } else if (s) {
+      DM.repeat.detach(s.id, old ? old.date : date);      // 只改这一天
+      if (date !== (old ? old.date : date)) DM.repeat.detach(s.id, date);
+      payload.seriesId = null;
+    } else if (rule) {
+      payload.seriesId = DM.repeat.create({ startDate: date, rule: rule, template: template });
+    }
+
     var saved = DM.store.upsert(payload);
 
     var chain = Promise.resolve();
@@ -560,7 +802,13 @@
       if (DM.banner) DM.banner.refresh();
       if (DM.toast) {
         var brief = title.length > 16 ? title.slice(0, 16) + '…' : title;
-        DM.toast(old ? '已更新' : '已放下', brief + ' · ' + start + (subs ? ' · ' + subs.length + ' 条' : ''));
+        var repTxt = '';
+        if (payload.seriesId) {
+          var ss = DM.repeat.get(payload.seriesId);
+          if (ss) repTxt = ' · ' + DM.repeat.describe(ss.rule, ss.startDate);
+        }
+        DM.toast(old ? '已更新' : '已放下',
+          brief + ' · ' + start + (subs ? ' · ' + subs.length + ' 条' : '') + repTxt);
       }
     });
   }
@@ -569,7 +817,12 @@
     if (!cur.id) return;
     var t = DM.store.getTask(cur.id);
     if (!t) return;
-    if (!window.confirm('删除「' + t.title + '」？')) return;
+    var s = t.seriesId ? DM.repeat.get(t.seriesId) : null;
+    var ask = s
+      ? '删除「' + t.title + '」这一天？\n\n重复还会继续，只是跳过这一天。'
+      : '删除「' + t.title + '」？';
+    if (!window.confirm(ask)) return;
+    if (s) DM.repeat.detach(s.id, t.date);
     DM.store.remove(cur.id);
     close();
     if (DM.day) DM.day.render();

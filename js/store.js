@@ -86,7 +86,10 @@
     return 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   }
   function freshDB() {
-    return { v: 1, tasks: [], domains: DEFAULT_DOMAINS.slice(), settings: Object.assign({}, DEFAULT_SETTINGS) };
+    return {
+      v: 1, tasks: [], series: {},
+      domains: DEFAULT_DOMAINS.slice(), settings: Object.assign({}, DEFAULT_SETTINGS)
+    };
   }
 
   /* ---------------- 状态 ---------------- */
@@ -115,6 +118,7 @@
     var out = freshDB();
     out.v = 1;
     if (Array.isArray(d.tasks)) out.tasks = d.tasks.filter(function (t) { return t && t.id && t.date && t.start; });
+    if (d.series && typeof d.series === 'object') out.series = d.series;
     if (Array.isArray(d.domains) && d.domains.length) out.domains = d.domains;
     if (d.settings && typeof d.settings === 'object') out.settings = Object.assign({}, DEFAULT_SETTINGS, d.settings);
     return out;
@@ -221,12 +225,27 @@
     list.forEach(function (s) { if (s.done) d++; });
     return { total: list.length, done: d };
   }
+  /* 图片是否还被别处引用（重复系列的实例会共用同一张图的 key） */
+  function fileInUse(key) {
+    for (var i = 0; i < db.tasks.length; i++) {
+      if ((db.tasks[i].attachments || []).indexOf(key) >= 0) return true;
+    }
+    var sids = Object.keys(db.series || {});
+    for (var j = 0; j < sids.length; j++) {
+      var tp = db.series[sids[j]].template || {};
+      if ((tp.attachments || []).indexOf(key) >= 0) return true;
+    }
+    return false;
+  }
+
   function remove(id) {
     var t = getTask(id);
-    if (t && t.attachments && t.attachments.length) {
-      t.attachments.forEach(function (k) { fileDelete(k); });   // 顺手收拾掉图，别在 IDB 里留垃圾
-    }
     db.tasks = db.tasks.filter(function (x) { return x.id !== id; });
+    if (t && t.attachments && t.attachments.length) {
+      t.attachments.forEach(function (k) {
+        if (!fileInUse(k)) fileDelete(k);   // 顺手收拾掉图，别在 IDB 里留垃圾
+      });
+    }
     saveSoon();
   }
   function toggle(id) {
@@ -302,6 +321,10 @@
   function clearAll() {
     db.tasks.forEach(function (t) {
       (t.attachments || []).forEach(function (k) { fileDelete(k); });
+    });
+    Object.keys(db.series || {}).forEach(function (sid) {
+      var tp = db.series[sid].template || {};
+      (tp.attachments || []).forEach(function (k) { fileDelete(k); });
     });
     db = freshDB();
     db.settings.firstRun = false;
@@ -515,6 +538,7 @@
     fileGet: fileGet,
     fileDelete: fileDelete,
     fileKey: fileKey,
+    fileInUse: fileInUse,
     flushFiles: flushFiles,
     leanClone: leanClone,
     hydrateFiles: hydrateFiles,

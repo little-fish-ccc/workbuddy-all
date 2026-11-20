@@ -87,7 +87,7 @@
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     var node = e.target && e.target.closest ? e.target.closest('.blk,.mark') : null;
     if (!node || !node.dataset.id) return;
-    if (state.date >= U.todayKey()) return;      // 只有今天之前才给标记
+    // 任何日期都能长按；「放弃 / 延迟完成」由面板按是否为过去日自行取舍
 
     press.id = node.dataset.id;
     press.x = e.clientX;
@@ -146,6 +146,7 @@
     el.track.style.height = H + 'px';
 
     /* 任务 */
+    if (DM.repeat) DM.repeat.ensure(date, date);   // 重复系列按需生成这一天的实例
     var list = DM.store.tasksOn(date);
     var shown = list.filter(function (t) { return s.showDone || !t.done; });
     var lay = DM.lane.compute(shown, o);
@@ -242,7 +243,7 @@
     var div = document.createElement('div');
     div.className = 'blk' + (lay.tiny ? ' tiny' : '') + (t.done ? ' done' : '') +
       (t.dropped ? ' dropped' : '') + (t.done && t.delayed ? ' late' : '') +
-      (b.off ? ' off' : '') + (partial ? ' part' : '');
+      (b.off ? ' off' : '') + (partial ? ' part' : '') + (t.seriesId ? ' rep' : '');
     div.dataset.id = t.id;
     div.style.cssText = 'top:' + b.top + 'px;height:' + b.height + 'px;left:' +
       b.left + '%;width:calc(' + b.width + '% - ' + (b.lanes > 1 ? 3 : 0) + 'px);--c:' + d.color;
@@ -252,7 +253,7 @@
     body.className = 'b-body';
 
     var endStr = U.toHHMM(Math.min(1440, U.toMin(t.start) + (t.duration || 0)));
-    var timeTxt = t.start + '–' + endStr + (b.off ? ' · 航道外' : '');
+    var timeTxt = (t.seriesId ? '⟳ ' : '') + t.start + '–' + endStr + (b.off ? ' · 航道外' : '');
 
     /* 有子任务且放得下 → 让位给清单；否则显示标题（可折行） */
     if (lay.rows > 0) {
@@ -318,7 +319,7 @@
     var d = DM.store.domain(t.domain);
     var div = document.createElement('div');
     div.className = 'mark' + (t.done ? ' done' : '') + (t.dropped ? ' dropped' : '') +
-      (t.done && t.delayed ? ' late' : '');
+      (t.done && t.delayed ? ' late' : '') + (t.seriesId ? ' rep' : '');
     div.dataset.id = t.id;
     div.style.cssText = 'top:' + mk.top + 'px;--c:' + d.color;
 
@@ -331,6 +332,12 @@
     var flag = document.createElement('i');
     flag.className = 'm-flag';
     pill.appendChild(flag);
+    if (t.seriesId) {
+      var rp = document.createElement('i');
+      rp.className = 'm-rep';
+      rp.textContent = '⟳';
+      pill.appendChild(rp);
+    }
     var b = document.createElement('b');
     var st = DM.store.subStats(t);
     // 有子任务时用「首条 等 N 项」，避免整句拼在一起看不清

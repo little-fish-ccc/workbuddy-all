@@ -10,10 +10,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="点卯">
-<link rel="manifest" href="./manifest.json?v=20261116a">
-<link rel="icon" href="./icons/icon-192.png?v=20261116a">
-<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=20261116a">
-<link rel="stylesheet" href="./css/style.css?v=20261116a">
+<link rel="manifest" href="./manifest.json?v=20261120a">
+<link rel="icon" href="./icons/icon-192.png?v=20261120a">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=20261120a">
+<link rel="stylesheet" href="./css/style.css?v=20261120a">
 </head>
 <body>
 <div class="app" id="app">
@@ -117,6 +117,12 @@
     <button class="icon-btn sm" id="drClose" aria-label="关闭">✕</button>
   </div>
   <div class="drawer-body">
+    <div class="rep-banner" id="repBanner" hidden>
+      <span class="rb-ico">⟳</span>
+      <span class="rb-text" id="repBannerText"></span>
+      <button type="button" class="rb-btn" id="repScope">改整个系列</button>
+    </div>
+
     <label class="field">
       <textarea class="input-title" id="fTitle" rows="1" placeholder="要做什么？多件事用逗号隔开" maxlength="300" autocomplete="off"></textarea>
     </label>
@@ -139,6 +145,32 @@
         <span class="lbl">开始</span>
         <input class="input" id="fStart" type="time" step="900">
       </label>
+    </div>
+
+    <div class="field">
+      <span class="lbl">重复</span>
+      <div class="chips" id="fRepeat"></div>
+      <div class="rep-panel" id="repPanel" hidden>
+        <div class="rep-line">
+          <span class="rep-t">每</span>
+          <input class="input rep-num" id="repN" type="number" min="1" max="30" step="1" inputmode="numeric" aria-label="间隔">
+          <span class="rep-t" id="repUnit">天</span>
+        </div>
+        <div class="rep-week" id="repWeek" hidden></div>
+        <div class="rep-line" id="repLineDom" hidden>
+          <span class="rep-t">在</span>
+          <input class="input rep-num" id="repDom" type="number" min="1" max="31" step="1" inputmode="numeric" aria-label="每月几号">
+          <span class="rep-t">号</span>
+          <label class="rep-chk"><input type="checkbox" id="repLast"><span>月末</span></label>
+        </div>
+        <div class="rep-line">
+          <select class="input select rep-end" id="repEnd" aria-label="重复结束">
+            <option value="never">一直重复</option>
+            <option value="until">重复到</option>
+          </select>
+          <input class="input rep-until" id="repUntil" type="date" hidden aria-label="结束日期">
+        </div>
+      </div>
     </div>
 
     <div class="field">
@@ -223,7 +255,7 @@
         <button class="btn ghost" id="btnClear">清空全部</button>
       </div>
     </div>
-    <p class="note-line" id="stVersion">点卯 v1 · 20261116a</p>
+    <p class="note-line" id="stVersion">点卯 v1 · 20261120a</p>
   </div>
   <div class="drawer-foot">
     <button class="btn primary" id="stDone">完成</button>
@@ -241,13 +273,14 @@
   <button class="sheet-cancel" id="sheetCancel" type="button">取消</button>
 </div>
 
-<script src="./js/store.js?v=20261116a"></script>
-<script src="./js/lane.js?v=20261116a"></script>
-<script src="./js/remind.js?v=20261116a"></script>
-<script src="./js/action.js?v=20261116a"></script>
-<script src="./js/view-editor.js?v=20261116a"></script>
-<script src="./js/view-day.js?v=20261116a"></script>
-<script src="./js/view-month.js?v=20261116a"></script>
-<script src="./js/app.js?v=20261116a"></script>
+<script src="./js/store.js?v=20261120a"></script>
+<script src="./js/repeat.js?v=20261120a"></script>
+<script src="./js/lane.js?v=20261120a"></script>
+<script src="./js/remind.js?v=20261120a"></script>
+<script src="./js/action.js?v=20261120a"></script>
+<script src="./js/view-editor.js?v=20261120a"></script>
+<script src="./js/view-day.js?v=20261120a"></script>
+<script src="./js/view-month.js?v=20261120a"></script>
+<script src="./js/app.js?v=20261120a"></script>
 </body>
 </html>

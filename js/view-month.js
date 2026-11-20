@@ -54,6 +54,14 @@
     var today = U.todayKey();
     var selected = DM.state ? DM.state.date : today;
 
+    /* 只补齐到今天为止的重复实例：未来那些等翻到那天再生成，免得满屏「未完成」 */
+    if (DM.repeat) {
+      var fromK = U.dateKey(start);
+      var toK = U.addDays(fromK, 41);
+      if (toK > today) toK = today;
+      if (toK >= fromK) DM.repeat.ensure(fromK, toK);
+    }
+
     var html = '';
     for (var i = 0; i < 42; i++) {
       var d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
