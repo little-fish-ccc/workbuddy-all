@@ -74,9 +74,10 @@
 
       var pct = st.totalMin ? Math.min(100, Math.round(st.totalMin / 480 * 100)) : 0;
 
-      /* 三种状态各一枚小圆点，同时存在就一起排 */
+      /* 状态各一枚小圆点，同时存在就一起排 */
       var dots = '';
       if (st.undone) dots += '<i class="dot u"></i>';
+      if (st.moved) dots += '<i class="dot m"></i>';
       if (st.dropped) dots += '<i class="dot g"></i>';
       if (st.delayed) dots += '<i class="dot y"></i>';
 

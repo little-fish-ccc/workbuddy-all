@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { JSDOM, ResourceLoader, VirtualConsole } from 'jsdom';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const VERSION = '20261120a';
+const VERSION = '20261124a';
 
 let pass = 0, fail = 0;
 const failures = [];
@@ -570,7 +570,186 @@ eq('系列没了', DM.repeat.list().length, 0);
 eq('实例也没了', DM.store.all().tasks.length, 0);
 eq('删完再 ensure 不生成', DM.repeat.ensure(today, U.addDays(today, 3)), 0);
 
-console.log('\n\x1b[1m23. 版本号一致性\x1b[0m');
+console.log('\n\x1b[1m23. 平移：过去没做的事挪到以后\x1b[0m');
+DM.store.clearAll();
+window.confirm = () => true;
+
+const P0 = U.addDays(today, -3);
+const T1 = U.addDays(today, 1);
+const T2 = U.addDays(today, 2);
+
+DM.store.upsert({ id: 'mv1', date: P0, start: '09:00', duration: 60, title: '没写完的方案', domain: 'work', remind: { before: -1 } });
+DM.store.upsert({ id: 'mv2', date: P0, start: '14:00', duration: null, title: '打个电话', domain: 'life', remind: { before: -1 } });
+DM.day.setDate(P0);
+await sleep(60);
+
+longPress($$('#blocks .blk')[0]);
+await sleep(520);
+ok('过去未完成有「移到以后」', !!$('#sheetList .sheet-item[data-k="move"]'));
+ok('多件未完成时有「都挪走」', !!$('#sheetList .sheet-item[data-k="moveall"]'));
+$('#sheetList .sheet-item[data-k="move"]').click();
+await sleep(220);
+eq('切到选日期界面', DM.sheet.mode(), 'move');
+ok('有快捷日期', $$('.move-quick .mv-q').length >= 3);
+eq('默认目标是明天', $('#moveDate').value, T1);
+eq('input 的最小值是明天', $('#moveDate').getAttribute('min'), T1);
+
+/* 点快捷「明天」 */
+$$('.move-quick .mv-q')[0].click();
+await sleep(340);
+eq('面板已关闭', $('#sheet').hidden, true);
+
+const mv1 = DM.store.getTask('mv1');
+eq('本体日期改到明天', mv1.date, T1);
+eq('记下原定日期', mv1.movedFrom, P0);
+eq('原日期只剩另一条', DM.store.tasksOn(P0).map(t => t.id), ['mv2']);
+eq('原位的印记来自 mv1', DM.store.ghostsOn(P0).map(t => t.id), ['mv1']);
+ok('到新日子会重新提醒', mv1.remind.notified === false);
+ok('只往以后挪', DM.store.moveTo('mv1', U.addDays(P0, -1)) === null);
+ok('挪到同一天不算', DM.store.moveTo('mv1', T1) === null);
+
+/* 原位渲染 */
+DM.day.setDate(P0);
+await sleep(80);
+const ghosts = $$('#blocks .mark.ghost');
+eq('航道里出现一枚印记', ghosts.length, 1);
+ok('印记写明去向', /→/.test(ghosts[0].textContent));
+ok('未完成时写「已移动」', /已移动/.test(ghosts[0].textContent));
+ok('印记有 mv 类', ghosts[0].classList.contains('mv'));
+ok('顶栏报出已移走', /1 件已移走/.test($('#daySub').textContent));
+eq('印记不占真任务的块位', $$('#blocks .blk').length, 0);
+
+const stP = DM.store.stats(P0);
+eq('stats.moved', stP.moved, 1);
+eq('stats.ghosts', stP.ghosts, 1);
+eq('挪走的不算未完成', stP.undone, 1);
+eq('挪走的不算件数', stP.count, 1);
+
+/* 月历：原位蓝点、目标日红点 */
+DM.month.render();
+await sleep(60);
+const cellP = doc.querySelector('.mcell[data-date="' + P0 + '"]');
+ok('原日期有「已移动」蓝点', !!cellP.querySelector('.dot.m'));
+const cellT1 = doc.querySelector('.mcell[data-date="' + T1 + '"]');
+ok('目标日有未完成红点', !!cellT1.querySelector('.dot.u'));
+ok('图例里有已移动', /已移动/.test($('.dots-legend').textContent));
+
+/* 在新日子做完 → 原位改成「已延迟完成」 */
+DM.store.toggle('mv1');
+DM.day.setDate(P0);
+await sleep(80);
+const ghost2 = $$('#blocks .mark.ghost')[0];
+ok('完成之后写「已延迟完成」', /已延迟完成/.test(ghost2.textContent));
+ok('印记有 late 类', ghost2.classList.contains('late'));
+const stP2 = DM.store.stats(P0);
+eq('已完成挪走算延迟完成', stP2.delayed, 1);
+eq('已移动归零', stP2.moved, 0);
+DM.month.render();
+await sleep(50);
+const cellP2 = doc.querySelector('.mcell[data-date="' + P0 + '"]');
+ok('原日期黄点出现', !!cellP2.querySelector('.dot.y'));
+ok('蓝点消失', !cellP2.querySelector('.dot.m'));
+
+/* 点印记 → 面板 → 放回原位 */
+await sleep(760);                        // 等长按的点击屏蔽窗口过去
+$$('#blocks .mark.ghost')[0].dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+await sleep(200);
+eq('印记面板切到 ghost 模式', DM.sheet.mode(), 'ghost');
+ok('面板写明挪到哪天', /挪到了/.test($('#sheetHead').textContent));
+ok('面板有放回原位', !!$('#sheetList .sheet-item[data-k="unmove"]'));
+$('#sheetList .sheet-item[data-k="unmove"]').click();
+await sleep(320);
+eq('放回原位后日期回来', DM.store.getTask('mv1').date, P0);
+ok('movedFrom 已清掉', !DM.store.getTask('mv1').movedFrom);
+eq('印记消失', DM.store.ghostsOn(P0).length, 0);
+
+/* 批量挪走 */
+DM.store.clearAll();
+DM.day.setDate(P0);
+['a', 'b', 'c'].forEach((k, i) => {
+  DM.store.upsert({ id: 'bulk' + k, date: P0, start: U.toHHMM(9 * 60 + i * 60), duration: i ? null : 30, title: '积压 ' + k, domain: 'work', remind: { before: -1 } });
+});
+DM.day.setDate(P0);
+await sleep(60);
+longPress($$('#blocks .blk')[0]);
+await sleep(520);
+ok('批量入口写明件数', /3 件都挪走/.test($('#sheetList .sheet-item[data-k="moveall"]').textContent));
+$('#sheetList .sheet-item[data-k="moveall"]').click();
+await sleep(220);
+eq('批量面板 head 写件数', /3 件没做的事/.test($('#sheetHead').textContent), true);
+$$('.move-quick .mv-q')[1].click();      // 后天
+await sleep(340);
+eq('三件都到了后天', DM.store.tasksOn(T2).length, 3);
+eq('原日期空出来', DM.store.tasksOn(P0).length, 0);
+eq('原位三个印记', DM.store.ghostsOn(P0).length, 3);
+const stB = DM.store.stats(P0);
+eq('只留印记时 count 为 0', stB.count, 0);
+eq('三件都算已移动', stB.moved, 3);
+DM.day.setDate(P0);
+await sleep(60);
+eq('空态不显示（还有印记）', $('#emptyHint').hidden, true);
+
+/* 重复系列的实例被挪走：原位不再自动补回 */
+DM.store.clearAll();
+const R0 = U.addDays(today, -2);
+DM.editor.open(null, { date: R0, start: '08:00', duration: 30 });
+$('#fTitle').value = '吃药';
+$('#fRepeat .chip[data-freq="daily"]').click();
+$('#drSave').click();
+await sleep(180);
+const sidR = DM.repeat.list()[0].id;
+const rTask = DM.store.tasksOn(R0)[0];
+ok('过去有这一条', !!rTask && rTask.seriesId === sidR);
+DM.store.moveTo(rTask.id, T1);
+ok('系列记下原日期为例外', DM.repeat.get(sidR).exdates.indexOf(R0) >= 0);
+eq('原位不再自动补回', DM.repeat.ensure(R0, R0), 0);
+eq('目标日只留挪来的那一条', DM.store.tasksOn(T1).length, 1);
+eq('挪来的还挂在系列里', DM.store.tasksOn(T1)[0].seriesId, sidR);
+
+DM.repeat.update(sidR, { freq: 'daily', interval: 1 }, { title: '吃药', start: '07:30', duration: 30, domain: 'work' });
+ok('改系列规则不会清掉手动挪来的', !!DM.store.getTask(rTask.id));
+
+DM.store.moveBack(rTask.id);
+eq('放回原位后日期回来', DM.store.getTask(rTask.id).date, R0);
+ok('例外也撤销了', DM.repeat.get(sidR).exdates.indexOf(R0) < 0);
+eq('放回后可再生成检查', DM.store.tasksOn(R0).length, 1);
+
+/* 挪来的重复任务在编辑器里取消重复：截止日得按原定那天算，不能按目标日 */
+DM.store.clearAll();
+const E0 = U.addDays(today, -4);
+DM.editor.open(null, { date: E0, start: '09:00', duration: 30 });
+$('#fTitle').value = '散步';
+$('#fRepeat .chip[data-freq="daily"]').click();
+$('#drSave').click();
+await sleep(180);
+const sidE = DM.repeat.list()[0].id;
+const eTask = DM.store.tasksOn(E0)[0];
+DM.store.moveTo(eTask.id, T1);
+DM.editor.open(eTask.id);
+$('#fRepeat .chip[data-freq="none"]').click();
+$('#drSave').click();
+await sleep(200);
+eq('截止日按原定那天算', DM.repeat.get(sidE).rule.until, U.addDays(E0, -1));
+eq('这条脱开系列', DM.store.getTask(eTask.id).seriesId, null);
+eq('中间几天没被多造出来', DM.store.tasksOn(U.addDays(E0, 2)).length, 0);
+
+/* 已移动的任务删掉时，原日期不该再冒出新实例 */
+DM.store.clearAll();
+DM.editor.open(null, { date: E0, start: '09:00', duration: 30 });
+$('#fTitle').value = '读书';
+$('#fRepeat .chip[data-freq="daily"]').click();
+$('#drSave').click();
+await sleep(180);
+const sidD = DM.repeat.list()[0].id;
+const dTask = DM.store.tasksOn(E0)[0];
+DM.store.moveTo(dTask.id, T1);
+DM.editor.open(dTask.id);
+$('#drDelete').click();
+await sleep(220);
+eq('删掉后原位不补新实例', DM.repeat.ensure(E0, E0), 0);
+eq('系列也排除了原日期', DM.repeat.get(sidD).exdates.indexOf(E0) >= 0, true);
+
+console.log('\n\x1b[1m24. 版本号一致性\x1b[0m');
 const vers = new Set(Array.from(html.matchAll(/\?v=([a-z0-9]+)/g)).map(m => m[1]));
 eq('index.html 内版本号唯一', Array.from(vers), [VERSION]);
 const sw = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');

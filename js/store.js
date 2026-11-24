@@ -303,6 +303,50 @@
     return t;
   }
 
+  /* ---------------- 平移：过去没做的事挪到以后，原位留个印记 ----------------
+   * 本体只有一个：任务的 date 直接改成目标日，movedFrom 记住最早那天。
+   * 于是原位的「痕迹」不是另一条数据，而是从 movedFrom 反查出来的，状态永远跟着本体走：
+   *   本体做完 → 原位显示「已延迟完成」；还没做 → 原位显示「已移动」；放弃 → 原位显示「已放弃」
+   */
+  function ghostsOn(date) {
+    return db.tasks
+      .filter(function (t) { return t.movedFrom === date && t.date !== date; })
+      .sort(function (a, b) { return toMin(a.start) - toMin(b.start); });
+  }
+
+  function moveTo(id, targetDate) {
+    var t = getTask(id);
+    if (!t) return null;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate || '')) return null;
+    if (targetDate <= t.date) return null;              // 只往以后挪
+    var origin = t.movedFrom || t.date;                 // 挪过几次，印记都留在最早那天
+    if (t.seriesId && DM.repeat) DM.repeat.detach(t.seriesId, t.date);  // 别让规则把这天补回来
+    t.movedFrom = origin;
+    t.movedAt = Date.now();
+    t.date = targetDate;
+    t.remind = t.remind || {};
+    t.remind.notified = false;                          // 到了新日子要重新提醒
+    delete t.remind.notifiedAt;
+    t.updatedAt = Date.now();
+    saveSoon();
+    return t;
+  }
+
+  function moveBack(id) {
+    var t = getTask(id);
+    if (!t || !t.movedFrom) return null;
+    var back = t.movedFrom;
+    if (t.seriesId && DM.repeat) DM.repeat.undetach(t.seriesId, back);
+    t.date = back;
+    delete t.movedFrom;
+    delete t.movedAt;
+    t.remind = t.remind || {};
+    t.remind.notified = false;
+    t.updatedAt = Date.now();
+    saveSoon();
+    return t;
+  }
+
   /* 清掉所有标记，回到普通未完成 */
   function clearMarks(id) {
     var t = getTask(id);
@@ -342,9 +386,18 @@
       if (t.done && t.delayed) delayed++;
       totalMin += (t.duration > 0 ? t.duration : 0);
     });
+    /* 挪走的那几件：原位只留印记。做完了算延迟完成，还没做就是「已移动」 */
+    var moved = 0, ghosts = 0;
+    ghostsOn(date).forEach(function (t) {
+      ghosts++;
+      if (t.dropped) dropped++;
+      else if (t.done) delayed++;
+      else moved++;
+    });
     return {
       count: list.length, done: done, undone: undone,
-      dropped: dropped, delayed: delayed, totalMin: totalMin
+      dropped: dropped, delayed: delayed, moved: moved, ghosts: ghosts,
+      totalMin: totalMin
     };
   }
 
@@ -521,6 +574,9 @@
     drop: drop,
     setDelayed: setDelayed,
     clearMarks: clearMarks,
+    ghostsOn: ghostsOn,
+    moveTo: moveTo,
+    moveBack: moveBack,
     toggleSub: toggleSub,
     normSubs: normSubs,
     splitTitle: splitTitle,

@@ -13,6 +13,7 @@
   --ok:#2E9E6B;
   --late:#E0A526;
   --drop:#B7AE9C;
+  --move:#5C7391;
   --danger:#C0392B;
   --shadow:0 1px 2px rgba(60,48,30,.06), 0 8px 24px rgba(60,48,30,.08);
   --radius:14px;
@@ -312,6 +313,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:inherit}
 }
 .mcell .dot{width:6px;height:6px;border-radius:50%}
 .mcell .dot.u{background:var(--accent)}
+.mcell .dot.m{background:var(--move)}
 .mcell .dot.g{background:var(--drop)}
 .mcell .dot.y{background:var(--late)}
 .mcell.out .dots{opacity:.45}
@@ -324,9 +326,10 @@ input,textarea,select{font-family:inherit;font-size:15px;color:inherit}
 .month-legend i.d1{opacity:.16}.month-legend i.d2{opacity:.32}
 .month-legend i.d3{opacity:.55}.month-legend i.d4{opacity:.85}
 .legend-gap{margin-left:10px}
-.dots-legend{margin-top:6px;gap:4px}
+.dots-legend{margin-top:6px;gap:4px;flex-wrap:wrap;row-gap:6px}
 .dots-legend .dg{width:6px;height:6px;border-radius:50%;flex:0 0 auto}
 .dots-legend .dg.u{background:var(--accent)}
+.dots-legend .dg.m{background:var(--move)}
 .dots-legend .dg.g{background:var(--drop)}
 .dots-legend .dg.y{background:var(--late)}
 .dots-legend span{margin-right:4px}
@@ -659,3 +662,54 @@ textarea.input{resize:none;line-height:1.4}
   background:repeating-linear-gradient(180deg,var(--c,#8A8377) 0 1.6px,transparent 1.6px 3.2px);
 }
 .mark .m-rep{font-size:10px;color:var(--muted);line-height:1;flex:0 0 auto;letter-spacing:0}
+
+/* ---------- 平移 ---------- */
+/* 原位印记：虚线胶囊，压在真任务下面，只作提示 */
+.mark.ghost{z-index:1;opacity:.9}
+.mark.ghost .m-line{opacity:.38}
+.mark.ghost .m-pill{
+  border-style:dashed;border-color:#DCD3BF;background:#F8F5EC;
+  color:var(--muted);gap:4px;
+}
+.mark.ghost .m-flag{width:4px;height:4px;border-radius:1px;background:var(--c,#8A8377);opacity:.5}
+.mark.ghost .g-title{
+  flex:0 1 auto;min-width:0;font-weight:600;color:#6D6558;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.mark.ghost .g-to{
+  flex:0 0 auto;font-size:11px;color:var(--muted);
+  font-variant-numeric:tabular-nums;letter-spacing:-.2px;
+}
+.mark.ghost .g-tag{
+  flex:0 0 auto;font-size:10px;line-height:15px;
+  padding:0 5px;border-radius:4px;white-space:nowrap;
+  background:#EFEBE0;color:var(--muted);
+}
+.mark.ghost.mv .m-pill{border-color:#C7D1E0}
+.mark.ghost.mv .g-tag{background:#E9EEF6;color:#4A6182}
+.mark.ghost.late .m-pill{border-color:#E7CE97;background:#FAF3E2}
+.mark.ghost.late .g-tag{background:#F7E7C4;color:#8A5E00}
+.mark.ghost.dropped .g-title{text-decoration:line-through;color:var(--muted)}
+.mark.ghost.rep .m-flag{
+  background:repeating-linear-gradient(180deg,var(--c,#8A8377) 0 1.6px,transparent 1.6px 3.2px);
+}
+.mark .m-mv{font-size:10px;color:var(--move);line-height:1;flex:0 0 auto;font-weight:700}
+
+/* 面板里的「移到以后」 */
+.sheet-item.mv .si-main{color:#3F5677}
+
+.move-box{padding:13px 15px 15px;display:flex;flex-direction:column;gap:10px}
+.move-quick{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.move-quick .mv-q{
+  display:flex;align-items:baseline;justify-content:center;gap:5px;
+  padding:9px 6px;border-radius:10px;
+  background:var(--surface-2);border:1px solid var(--line);
+  transition:background .13s,border-color .13s,transform .1s;
+}
+.move-quick .mv-q b{font-size:13.5px;font-weight:600;color:var(--ink)}
+.move-quick .mv-q span{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.move-quick .mv-q:active{transform:scale(.97);background:#F3EDDF;border-color:#D6C8AC}
+.move-row{display:flex;align-items:center;gap:8px}
+.move-row .input{flex:1 1 auto;min-width:0;padding:9px 10px;font-size:13.5px}
+.move-row .btn{flex:0 0 auto;min-width:0;padding:9px 16px;font-size:13.5px}
+.move-tip{margin:0;font-size:11.5px;line-height:1.5;color:var(--muted)}

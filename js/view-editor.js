@@ -739,6 +739,8 @@
     var rule = readRule();
 
     var old = cur.id ? DM.store.getTask(cur.id) : null;
+    /* 这条要是被平移来的，系列上的「那一天」得按原定日期算，不然会截错区间 */
+    var sDate = old ? (old.movedFrom || old.date) : date;
     var changed = !old || old.start !== start || old.date !== date ||
       ((old.remind && old.remind.before) != null ? +old.remind.before : DM.store.settings().defaultRemind) !== before;
 
@@ -772,16 +774,16 @@
 
     if (s && scopeAll) {
       if (!rule) {
-        DM.repeat.end(s.id, old ? old.date : date);      // 从这条起不再重复
-        DM.repeat.detach(s.id, old ? old.date : date);
+        DM.repeat.end(s.id, sDate);              // 从这条起不再重复
+        DM.repeat.detach(s.id, sDate);
         payload.seriesId = null;
       } else {
         DM.repeat.update(s.id, rule, template);
         payload.seriesId = s.id;
       }
     } else if (s) {
-      DM.repeat.detach(s.id, old ? old.date : date);      // 只改这一天
-      if (date !== (old ? old.date : date)) DM.repeat.detach(s.id, date);
+      DM.repeat.detach(s.id, sDate);             // 只改这一天
+      if (date !== sDate) DM.repeat.detach(s.id, date);
       payload.seriesId = null;
     } else if (rule) {
       payload.seriesId = DM.repeat.create({ startDate: date, rule: rule, template: template });
@@ -822,7 +824,7 @@
       ? '删除「' + t.title + '」这一天？\n\n重复还会继续，只是跳过这一天。'
       : '删除「' + t.title + '」？';
     if (!window.confirm(ask)) return;
-    if (s) DM.repeat.detach(s.id, t.date);
+    if (s) DM.repeat.detach(s.id, t.movedFrom || t.date);   // 平移动过的，原日期本来就不再生成
     DM.store.remove(cur.id);
     close();
     if (DM.day) DM.day.render();

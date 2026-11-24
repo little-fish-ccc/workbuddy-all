@@ -202,6 +202,7 @@
     db().tasks = db().tasks.filter(function (t) {
       if (t.seriesId !== sid) return true;
       if (t.date < tk) return true;                 // 过去的留着
+      if (t.movedFrom) return true;                 // 手动挪过来的，别跟着规则一起清掉
       if (t.done || t.dropped || t.delayed) return true;   // 已经处理过的留着
       return false;
     });
@@ -216,6 +217,15 @@
     DM.store.saveSoon();
   }
 
+  /* 撤销上面的排除（把挪走的任务放回原位时用） */
+  function undetach(sid, date) {
+    var s = get(sid);
+    if (!s || !s.exdates) return;
+    var i = s.exdates.indexOf(date);
+    if (i >= 0) s.exdates.splice(i, 1);
+    DM.store.saveSoon();
+  }
+
   /* 结束整个系列：date 及以后不再生成 */
   function end(sid, date) {
     var s = get(sid);
@@ -225,6 +235,7 @@
     db().tasks = db().tasks.filter(function (t) {
       if (t.seriesId !== sid) return true;
       if (t.date <= stop) return true;
+      if (t.movedFrom) return true;                 // 手动挪过来的那条不归规则管
       return t.done || t.dropped || t.delayed;
     });
     DM.store.saveSoon();
@@ -286,6 +297,7 @@
     list: list,
     update: update,
     detach: detach,
+    undetach: undetach,
     end: end,
     removeSeries: removeSeries,
     describe: describe,

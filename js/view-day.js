@@ -34,6 +34,10 @@
       // 长按刚弹过面板，这一下点击不算数
       if (Date.now() < press.until) { e.stopPropagation(); return; }
 
+      // 原位的印记：点开看看它被挪到哪了
+      var gk = e.target.closest('.mark.ghost');
+      if (gk) { e.stopPropagation(); DM.sheet.openMoved(gk.dataset.id, state.date); return; }
+
       var sb = e.target.closest('.s-box');
       if (sb) {
         e.stopPropagation();
@@ -76,7 +80,7 @@
     el.track.addEventListener('pointerleave', pressCancel);
   }
 
-  var press = { timer: null, x: 0, y: 0, id: null, fired: false, until: 0 };
+  var press = { timer: null, x: 0, y: 0, id: null, fired: false, until: 0, ghost: 0, date: '' };
 
   function pressCancel() {
     if (press.timer) { clearTimeout(press.timer); press.timer = null; }
@@ -87,19 +91,23 @@
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     var node = e.target && e.target.closest ? e.target.closest('.blk,.mark') : null;
     if (!node || !node.dataset.id) return;
-    // 任何日期都能长按；「放弃 / 延迟完成」由面板按是否为过去日自行取舍
+    // 任何日期都能长按；「放弃 / 延迟完成 / 移到以后」由面板按是否为过去日自行取舍
 
     press.id = node.dataset.id;
     press.x = e.clientX;
     press.y = e.clientY;
     press.fired = false;
+    press.ghost = node.dataset.ghost ? 1 : 0;
+    press.date = state.date;
     pressCancel();
     press.timer = setTimeout(function () {
       press.timer = null;
       press.fired = true;
       press.until = Date.now() + 700;
       if (navigator.vibrate) { try { navigator.vibrate(12); } catch (err) { } }
-      if (DM.sheet) DM.sheet.open(press.id);
+      if (!DM.sheet) return;
+      if (press.ghost) DM.sheet.openMoved(press.id, press.date);
+      else DM.sheet.open(press.id);
     }, 460);
   }
 
@@ -151,11 +159,21 @@
     var shown = list.filter(function (t) { return s.showDone || !t.done; });
     var lay = DM.lane.compute(shown, o);
 
+    /* 这天原本有、后来被挪走的那几件：只在原位留一道浅色印记 */
+    var ghosts = DM.store.ghostsOn(date);
+    var ghostPos = DM.lane.compute(ghosts.map(function (t) {
+      return { id: t.id, start: t.start, duration: null };
+    }), o);
+
     el.blocks.innerHTML = '';
+    ghostPos.marks.forEach(function (mk) {
+      var gt = DM.store.getTask(mk.task.id);
+      if (gt) el.blocks.appendChild(ghostEl(gt, mk));
+    });
     lay.blocks.forEach(function (b) { el.blocks.appendChild(blockEl(b)); });
     lay.marks.forEach(function (mk) { el.blocks.appendChild(markEl(mk)); });
 
-    el.empty.hidden = shown.length > 0;
+    el.empty.hidden = shown.length > 0 || ghosts.length > 0;
 
     /* 此刻水线 */
     var isToday = date === U.todayKey();
@@ -180,9 +198,10 @@
 
   function attn(date) {
     var st = DM.store.stats(date);
-    if (!st.count) return '';
+    if (!st.count && !st.ghosts) return '';
     var bits = [];
     if (st.undone) bits.push('还有 ' + st.undone + ' 件');
+    if (st.moved) bits.push(st.moved + ' 件已移走');
     if (st.dropped) bits.push(st.dropped + ' 件已放弃');
     if (!bits.length) return ' · 全部点完';
     return ' · ' + bits.join(' · ');
@@ -253,7 +272,8 @@
     body.className = 'b-body';
 
     var endStr = U.toHHMM(Math.min(1440, U.toMin(t.start) + (t.duration || 0)));
-    var timeTxt = (t.seriesId ? '⟳ ' : '') + t.start + '–' + endStr + (b.off ? ' · 航道外' : '');
+    var pref = (t.seriesId ? '⟳ ' : '') + (t.movedFrom ? '↪ ' : '');
+    var timeTxt = pref + t.start + '–' + endStr + (b.off ? ' · 航道外' : '');
 
     /* 有子任务且放得下 → 让位给清单；否则显示标题（可折行） */
     if (lay.rows > 0) {
@@ -338,6 +358,13 @@
       rp.textContent = '⟳';
       pill.appendChild(rp);
     }
+    if (t.movedFrom) {
+      var mv = document.createElement('i');
+      mv.className = 'm-mv';
+      mv.textContent = '↪';
+      mv.title = '由 ' + U.fmtDayTitle(t.movedFrom) + ' 移来';
+      pill.appendChild(mv);
+    }
     var b = document.createElement('b');
     var st = DM.store.subStats(t);
     // 有子任务时用「首条 等 N 项」，避免整句拼在一起看不清
@@ -359,6 +386,59 @@
     });
     div.appendChild(dot);
 
+    return div;
+  }
+
+  /* 原位印记：任务已经被挪到别的日子，这里只留一道浅色痕迹。
+   * 状态直接读本体：做完了显示「已延迟完成」，没做就是「已移动」。
+   */
+  function ghostEl(t, mk) {
+    var d = DM.store.domain(t.domain);
+    var st = t.dropped ? 'dropped' : (t.done ? 'late' : 'mv');
+    var div = document.createElement('div');
+    div.className = 'mark ghost ' + st + (t.seriesId ? ' rep' : '');
+    div.dataset.id = t.id;
+    div.dataset.ghost = '1';
+    div.style.cssText = 'top:' + mk.top + 'px;--c:' + d.color;
+
+    var line = document.createElement('i');
+    line.className = 'm-line';
+    div.appendChild(line);
+
+    var pill = document.createElement('div');
+    pill.className = 'm-pill';
+
+    var flag = document.createElement('i');
+    flag.className = 'm-flag';
+    pill.appendChild(flag);
+
+    if (t.seriesId) {
+      var rp = document.createElement('i');
+      rp.className = 'm-rep';
+      rp.textContent = '⟳';
+      pill.appendChild(rp);
+    }
+
+    var b = document.createElement('b');
+    b.className = 'g-title';
+    var ss = DM.store.subStats(t);
+    b.textContent = ss.total
+      ? (t.subs[0] ? t.subs[0].text : t.title) + ' 等 ' + ss.total + ' 项'
+      : t.title;
+    pill.appendChild(b);
+
+    var to = document.createElement('span');
+    to.className = 'g-to';
+    to.textContent = '→ ' + U.fmtDayTitle(t.date);
+    pill.appendChild(to);
+
+    var tag = document.createElement('span');
+    tag.className = 'g-tag';
+    tag.textContent = t.dropped ? '已放弃' : (t.done ? '已延迟完成' : '已移动');
+    pill.appendChild(tag);
+
+    div.appendChild(pill);
+    div.setAttribute('aria-label', t.title + ' · ' + tag.textContent);
     return div;
   }
 
